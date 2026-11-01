@@ -369,3 +369,15 @@ Configuration: `Showings:DisplayTimeZone` (Europe/Stockholm).
 - **API:** `GET /api/public/movies/{id}` (anonymous) returns `MovieDetailDto` (`Id, Title, Description, LengthMinutes, Genre, AgeRating, Showings: ShowingListItem[]`). Showings use the same query as the public showings search, filtered by movie. 404 for an unknown id.
 - **Filter limits:** date input min = today, max = today + 13 days.
 - **Tests:** `PublicBrowsingTests.cs` (movie detail 200, 200 empty, 404) and `PublicClientTests.cs` (client query, errors, grouping, time-zone fallback, Book URLs, routes). No bUnit tests yet.
+
+## Seat map API (US-134)
+
+- **Endpoint:** `GET api/showings/{id:int}/seats`, anonymous. Controller: `ShowingSeatsController`.
+- **Response:** `SeatMapDto` with `ShowingId`, `Start`, `IsBookable`, and `Seats` (list of `SeatDto`: `SeatId`, `Row`, `Number`, `Type` = `Standard` | `VIP`, `Price` in SEK, `IsTaken`). Ordered by Row, then Number.
+- **Builder:** `SeatMapBuilder.BuildAsync(db, prices, showingId, TimeProvider, ct)` is static and reusable (planned for US-135).
+- **Taken rule:** a seat is taken when it belongs to an active Confirmed booking for the showing.
+- **Bookable rule:** `IsBookable` = false when `StartTime <= now` (via `TimeProvider`) or the showing is cancelled; otherwise true. Cancelled showings return 404.
+- **Errors:** unknown or cancelled showing returns 404 ProblemDetails.
+- **Price:** whole-SEK decimal from `IPriceCalculator`, cast to int.
+- **Configuration:** none new. Uses the pricing configuration from US-127.
+- **Known limitation:** no push updates; clients refetch.
