@@ -12,6 +12,11 @@ node_modules/
 TestResults/
 *.log
 
+# Local SQLite database
+*.db
+*.db-shm
+*.db-wal
+
 # IDEs
 .vs/
 .vscode/
