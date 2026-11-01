@@ -1,0 +1,9 @@
+@inject NavigationManager Nav
+
+@code {
+    /// <summary>True when the user is logged in but not allowed on the page.</summary>
+    [Parameter] public bool Authenticated { get; set; }
+
+    protected override void OnInitialized() =>
+        Nav.NavigateTo(Authenticated ? "no-access" : AuthRedirect.LoginUrl(Nav), replace: true);
+}

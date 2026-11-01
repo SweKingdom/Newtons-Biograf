@@ -1,0 +1,70 @@
+@page "/register"
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Nav
+
+<PageTitle>Register · Newtons Biograf</PageTitle>
+
+<h1>Create an account</h1>
+
+<div class="form-narrow">
+    <Card>
+        @if (problem?.General(Fields) is { } general)
+        {
+            <AlertBox Kind="AlertBox.AlertKind.Error">@general</AlertBox>
+        }
+
+        <form @onsubmit="SubmitAsync" novalidate>
+            <FormField Label="Name" Id="register-name" Error="@(problem?.Field("Name"))">
+                <input id="register-name" type="text" autocomplete="name" @bind="name" @bind:event="oninput" />
+            </FormField>
+            <FormField Label="Email" Id="register-email" Error="@(problem?.Field("Email"))">
+                <input id="register-email" type="email" autocomplete="username" @bind="email" @bind:event="oninput" />
+            </FormField>
+            <FormField Label="Password (at least 8 characters)" Id="register-password" Error="@(problem?.Field("Password"))">
+                <input id="register-password" type="password" autocomplete="new-password" @bind="password" @bind:event="oninput" />
+            </FormField>
+            <AppButton Type="submit" Disabled="busy">Register</AppButton>
+            @if (busy)
+            {
+                <Spinner />
+            }
+        </form>
+        <p class="mt-4">Already registered? <a href="login">Log in</a></p>
+    </Card>
+</div>
+
+@code {
+    private static readonly string[] Fields = ["Name", "Email", "Password"];
+
+    private string name = "";
+    private string email = "";
+    private string password = "";
+    private bool busy;
+    private ApiProblem? problem;
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        problem = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            var response = await client.PostAsJsonAsync("api/auth/register",
+                new RegisterRequest { Name = name, Email = email, Password = password });
+            if (response.IsSuccessStatusCode)
+            {
+                Nav.NavigateTo("login?registered=true");
+                return;
+            }
+            problem = await ApiProblem.ReadAsync(response);
+        }
+        catch (HttpRequestException)
+        {
+            problem = ApiProblem.Unreachable;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

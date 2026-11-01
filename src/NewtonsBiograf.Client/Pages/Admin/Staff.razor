@@ -1,0 +1,241 @@
+@page "/admin/staff"
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>Staff · Newtons Biograf</PageTitle>
+
+<h1>Staff</h1>
+
+@if (notice is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Success">@notice</AlertBox>
+}
+@if (listProblem is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@listProblem.General()</AlertBox>
+}
+
+<div class="stack">
+    <Card Title="Staff accounts">
+        @if (staff is null && listProblem is null)
+        {
+            <Spinner />
+        }
+        else if (staff is not null && staff.Length == 0)
+        {
+            <p class="text-muted">There are no staff accounts yet. Create the first one below.</p>
+        }
+        else if (staff is not null)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr><th>Name</th><th>Email</th><th>Permissions</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var member in staff)
+                    {
+                        <tr>
+                            <td>@member.Name</td>
+                            <td>@member.Email</td>
+                            @if (editingId == member.Id)
+                            {
+                                <td>
+                                    @if (editProblem?.General() is { } editMessage)
+                                    {
+                                        <AlertBox Kind="AlertBox.AlertKind.Error">@editMessage</AlertBox>
+                                    }
+                                    <fieldset class="checkbox-group">
+                                        <legend>Permissions for @member.Name</legend>
+                                        @foreach (var permission in Permissions.All)
+                                        {
+                                            <label>
+                                                <input type="checkbox" checked="@editPermissions.Contains(permission)"
+                                                       @onchange="e => Toggle(editPermissions, permission, e)" />@permission
+                                            </label>
+                                        }
+                                    </fieldset>
+                                </td>
+                                <td>
+                                    <AppButton Disabled="busy" OnClick="SavePermissionsAsync">Save</AppButton>
+                                    <AppButton Variant="AppButton.ButtonVariant.Secondary" OnClick="CancelEdit">Cancel</AppButton>
+                                </td>
+                            }
+                            else
+                            {
+                                <td>@(member.Permissions.Length == 0 ? "None" : string.Join(", ", member.Permissions))</td>
+                                <td>
+                                    <AppButton Variant="AppButton.ButtonVariant.Secondary" OnClick="() => StartEdit(member)">Edit permissions</AppButton>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </Card>
+
+    <Card Title="Create staff account">
+        @if (createProblem?.General(CreateFields) is { } createMessage)
+        {
+            <AlertBox Kind="AlertBox.AlertKind.Error">@createMessage</AlertBox>
+        }
+        <form @onsubmit="CreateAsync" novalidate class="form-narrow">
+            <FormField Label="Name" Id="staff-name" Error="@(createProblem?.Field("Name"))">
+                <input id="staff-name" type="text" @bind="name" @bind:event="oninput" />
+            </FormField>
+            <FormField Label="Email" Id="staff-email" Error="@(createProblem?.Field("Email"))">
+                <input id="staff-email" type="email" autocomplete="off" @bind="email" @bind:event="oninput" />
+            </FormField>
+            <FormField Label="Password (at least 8 characters)" Id="staff-password" Error="@(createProblem?.Field("Password"))">
+                <input id="staff-password" type="password" autocomplete="new-password" @bind="password" @bind:event="oninput" />
+            </FormField>
+            <fieldset class="checkbox-group">
+                <legend>Permissions</legend>
+                @foreach (var permission in Permissions.All)
+                {
+                    <label>
+                        <input type="checkbox" checked="@newPermissions.Contains(permission)"
+                               @onchange="e => Toggle(newPermissions, permission, e)" />@permission
+                    </label>
+                }
+                @if (createProblem?.Field("Permissions") is { } permissionError)
+                {
+                    <p class="form-field-error" role="alert">@permissionError</p>
+                }
+            </fieldset>
+            <AppButton Type="submit" Disabled="busy">Create staff account</AppButton>
+        </form>
+    </Card>
+</div>
+
+@code {
+    private static readonly string[] CreateFields = ["Name", "Email", "Password", "Permissions"];
+
+    private StaffDto[]? staff;
+    private ApiProblem? listProblem;
+    private string? notice;
+    private bool busy;
+
+    private string name = "";
+    private string email = "";
+    private string password = "";
+    private readonly HashSet<string> newPermissions = [];
+    private ApiProblem? createProblem;
+
+    private string? editingId;
+    private readonly HashSet<string> editPermissions = [];
+    private ApiProblem? editProblem;
+
+    private HttpClient Client => HttpClientFactory.CreateClient("Api");
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var response = await Client.GetAsync("api/admin/staff");
+            if (response.IsSuccessStatusCode)
+            {
+                staff = await response.Content.ReadFromJsonAsync<StaffDto[]>() ?? [];
+                listProblem = null;
+            }
+            else
+            {
+                listProblem = await ApiProblem.ReadAsync(response);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            listProblem = ApiProblem.Unreachable;
+        }
+    }
+
+    private static void Toggle(HashSet<string> set, string permission, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            set.Add(permission);
+        }
+        else
+        {
+            set.Remove(permission);
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        busy = true;
+        createProblem = null;
+        notice = null;
+        try
+        {
+            var response = await Client.PostAsJsonAsync("api/admin/staff", new CreateStaffRequest
+            {
+                Name = name,
+                Email = email,
+                Password = password,
+                Permissions = newPermissions.ToArray()
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                notice = $"Staff account created for {name}.";
+                name = email = password = "";
+                newPermissions.Clear();
+                await LoadAsync();
+            }
+            else
+            {
+                createProblem = await ApiProblem.ReadAsync(response);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            createProblem = ApiProblem.Unreachable;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void StartEdit(StaffDto member)
+    {
+        editingId = member.Id;
+        editPermissions.Clear();
+        editPermissions.UnionWith(member.Permissions);
+        editProblem = null;
+        notice = null;
+    }
+
+    private void CancelEdit() => editingId = null;
+
+    private async Task SavePermissionsAsync()
+    {
+        busy = true;
+        editProblem = null;
+        try
+        {
+            var response = await Client.PutAsJsonAsync($"api/admin/staff/{Uri.EscapeDataString(editingId!)}/permissions",
+                new UpdatePermissionsRequest { Permissions = editPermissions.ToArray() });
+            if (response.IsSuccessStatusCode)
+            {
+                notice = "Permissions saved. They apply the next time the staff member logs in.";
+                editingId = null;
+                await LoadAsync();
+            }
+            else
+            {
+                editProblem = await ApiProblem.ReadAsync(response);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            editProblem = ApiProblem.Unreachable;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

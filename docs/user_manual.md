@@ -32,7 +32,24 @@ Tip: The **Menu** button tells screen readers whether the menu is open or closed
 
 ## How to register and log in
 
-No change in this story. Note: if you call a protected page or function without being logged in, you will be asked to log in again. If your account does not have the access needed for an action, the action is refused with a "Forbidden" message.
+Use this procedure to create an account, sign in and sign out.
+
+1. Open the app and select **Register** in the header.
+2. Enter your details in **Name**, **Email** and **Password**. The password must be at least 8 characters.
+3. Select **Register**. If a field is invalid, the message appears under that field. Correct it and try again.
+4. After a successful registration you are taken to the **Log in** page with a success notice.
+5. Enter your **Email** and **Password** and select **Log in**.
+6. The header shows your name and role. The menu shows only the pages your role allows.
+
+**Wrong password:** the message "Invalid email or password." appears in an alert box. Check your details and try again.
+
+**Log out:** select **Log out** in the header. You are signed out and the header shows **Log in** and **Register** again.
+
+**Restricted pages:** if you open a protected page while signed out, the app shows the **Log in** page. After you log in, you return to the page you asked for.
+
+**No access:** if you are signed in but your role does not allow a page, the page "You don't have access to this page" is shown.
+
+**Tip:** Log out when you use a shared computer.
 
 ## How to create a staff account
 

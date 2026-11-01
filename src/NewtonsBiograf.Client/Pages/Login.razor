@@ -1,0 +1,75 @@
+@page "/login"
+@inject IHttpClientFactory HttpClientFactory
+@inject JwtAuthStateProvider AuthState
+@inject NavigationManager Nav
+
+<PageTitle>Log in · Newtons Biograf</PageTitle>
+
+<h1>Log in</h1>
+
+<div class="form-narrow">
+    <Card>
+        @if (Registered)
+        {
+            <AlertBox Kind="AlertBox.AlertKind.Success">Your account has been created. Log in to continue.</AlertBox>
+        }
+        @if (problem?.General(Fields) is { } general)
+        {
+            <AlertBox Kind="AlertBox.AlertKind.Error">@general</AlertBox>
+        }
+
+        <form @onsubmit="SubmitAsync" novalidate>
+            <FormField Label="Email" Id="login-email" Error="@(problem?.Field("Email"))">
+                <input id="login-email" type="email" autocomplete="username" @bind="email" @bind:event="oninput" />
+            </FormField>
+            <FormField Label="Password" Id="login-password" Error="@(problem?.Field("Password"))">
+                <input id="login-password" type="password" autocomplete="current-password" @bind="password" @bind:event="oninput" />
+            </FormField>
+            <AppButton Type="submit" Disabled="busy">Log in</AppButton>
+            @if (busy)
+            {
+                <Spinner />
+            }
+        </form>
+        <p class="mt-4">No account yet? <a href="register">Register</a></p>
+    </Card>
+</div>
+
+@code {
+    private static readonly string[] Fields = ["Email", "Password"];
+
+    private string email = "";
+    private string password = "";
+    private bool busy;
+    private ApiProblem? problem;
+
+    [Parameter, SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+
+    [Parameter, SupplyParameterFromQuery(Name = "registered")] public bool Registered { get; set; }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        problem = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            var response = await client.PostAsJsonAsync("api/auth/login", new LoginRequest { Email = email, Password = password });
+            if (response.IsSuccessStatusCode && await response.Content.ReadFromJsonAsync<LoginResponse>() is { } login)
+            {
+                await AuthState.Login(login);
+                Nav.NavigateTo(AuthRedirect.SafeReturnUrl(ReturnUrl));
+                return;
+            }
+            problem = response.IsSuccessStatusCode ? ApiProblem.Unexpected : await ApiProblem.ReadAsync(response);
+        }
+        catch (HttpRequestException)
+        {
+            problem = ApiProblem.Unreachable;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

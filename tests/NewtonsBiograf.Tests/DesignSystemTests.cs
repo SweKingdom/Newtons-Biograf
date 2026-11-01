@@ -90,4 +90,31 @@ public class DesignSystemTests
         Assert.False(File.Exists(Path.Combine(ClientDir, "Layout", "NavMenu.razor")));
         Assert.False(Directory.Exists(Path.Combine(ClientDir, "wwwroot", "css", "bootstrap")));
     }
+
+    [Fact]
+    public void US123_Ac2_Staff_page_is_admin_only_and_offers_all_three_permissions_for_create_and_edit()
+    {
+        var page = Read("Pages", "Admin", "Staff.razor");
+
+        Assert.Contains("@page \"/admin/staff\"", page);
+        Assert.Contains("[Authorize(Roles = Roles.Admin)]", page);
+        Assert.Equal(2, Regex.Matches(page, @"in Permissions\.All").Count);
+        Assert.Contains("GetAsync(\"api/admin/staff\")", page);
+        Assert.Contains("PostAsJsonAsync(\"api/admin/staff\"", page);
+        Assert.Contains("PutAsJsonAsync(", page);
+    }
+
+    [Fact]
+    public void US123_Ac3_Router_guards_pages_and_menu_links_depend_on_the_role()
+    {
+        var app = Read("App.razor");
+        var layout = Read("Layout", "MainLayout.razor");
+
+        Assert.Contains("<AuthorizeRouteView", app);
+        Assert.Contains("<AccessRedirect", app);
+        Assert.Contains("<AuthorizeView Roles=\"@Roles.Admin\">", layout);
+        Assert.Contains("Log out", layout);
+        Assert.True(File.Exists(Path.Combine(ClientDir, "Pages", "NoAccess.razor")));
+        Assert.Contains("@page \"/no-access\"", Read("Pages", "NoAccess.razor"));
+    }
 }

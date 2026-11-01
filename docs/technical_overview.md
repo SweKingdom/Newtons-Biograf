@@ -119,3 +119,24 @@ Known gaps: no delete or deactivate endpoint for staff. Permission updates are a
 - Idempotent: same set returns 204 with no write.
 - Tokens are not revoked. Changes apply when a new token is issued, which is governed by `Jwt:ExpiryMinutes` (default 60).
 - No schema change or migration.
+
+## Client authentication (US-123)
+
+Blazor client authentication and role-aware UI.
+
+| Component | Purpose |
+|---|---|
+| `Shared/Permissions.cs` | `Permissions` and `Roles` constants, shared by API and client. |
+| `Client/Auth/JwtAuthStateProvider.cs` | `JwtParser.ParseClaims(token, now)` returns claims, or null for malformed, expired or exp-less tokens. `JwtAuthStateProvider` is a singleton, shared by the UI and `AuthMessageHandler`. Token stored in localStorage `nb_token`. |
+| `Client/Auth/AuthMessageHandler.cs` | Adds `Authorization: Bearer` to API calls. 401 clears the token and redirects to login. 403 redirects to `/no-access`. Created by IHttpClientFactory in its own scope. |
+| `Client/Auth/AuthRedirect.cs` | `SafeReturnUrl` accepts in-app addresses only. |
+| `Client/Auth/ApiProblem.cs` | Maps `ValidationProblemDetails` to form field errors. |
+| `Client/Components/AccessRedirect.razor` | Redirects anonymous users to login and signed-in users without rights to `/no-access`. |
+| `Client/App.razor` | `AuthorizeRouteView` guards pages. |
+| `Client/Layout/MainLayout.razor` | Role-based menu, user name and role, Log out. |
+
+**Notes**
+- The API remains the enforcement point. The UI only hides items and redirects.
+- Staff-permission menu items are not added yet. Later stories add them with `AuthorizeView` and permission claims.
+- Pages: `/login`, `/register`, `/no-access`, `/admin/staff`.
+- Known gap: no component-level test for the Staff save flow.

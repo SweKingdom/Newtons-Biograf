@@ -17,10 +17,12 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="NewtonsBiograf.Shared" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NewtonsBiograf.Api\NewtonsBiograf.Api.csproj" />
+    <ProjectReference Include="..\..\src\NewtonsBiograf.Client\NewtonsBiograf.Client.csproj" />
     <ProjectReference Include="..\..\src\NewtonsBiograf.Shared\NewtonsBiograf.Shared.csproj" />
   </ItemGroup>
 
