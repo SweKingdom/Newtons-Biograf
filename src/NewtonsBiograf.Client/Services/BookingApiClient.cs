@@ -10,9 +10,15 @@ namespace NewtonsBiograf.Client.Services;
 /// <summary>Outcome of creating a booking: exactly one of the booking, a seat conflict (409 with the fresh map) or an error message.</summary>
 public sealed record BookingCreateResult(BookingDto? Booking = null, SeatConflictDto? Conflict = null, string? Error = null);
 
+/// <summary>Outcome of cancelling a booking: success, or the plain-language message of the refusal (for example the API's 409).</summary>
+public sealed record BookingCancelResult(bool Success, string? Error = null);
+
 /// <summary>Typed client for the seat map and booking endpoints; goes through the "Api" client so the token is attached.</summary>
 public sealed class BookingApiClient(IHttpClientFactory factory)
 {
+    public const string CancelForbiddenMessage = "You are not allowed to cancel this booking.";
+    public const string CancelNotFoundMessage = "That booking no longer exists.";
+
     private static JsonSerializerOptions Json => MovieApiClient.Json;
 
     public Task<PublicResult<SeatMapDto>> GetSeatMapAsync(int showingId) =>
@@ -21,6 +27,46 @@ public sealed class BookingApiClient(IHttpClientFactory factory)
     public Task<PublicResult<BookingDto[]>> GetMineAsync(BookingScope scope) =>
         PublicApiClient.GetAsync<BookingDto[]>(factory.CreateClient("Api"),
             $"api/bookings/mine?scope={scope.ToString().ToLowerInvariant()}");
+
+    /// <summary>Staff search by showing and/or reference (at least one is required by the API).</summary>
+    public Task<PublicResult<BookingDto[]>> SearchAsync(int? showingId, string? reference)
+    {
+        var parts = new List<string>();
+        if (showingId is { } id)
+        {
+            parts.Add($"showingId={id.ToString(CultureInfo.InvariantCulture)}");
+        }
+        if (!string.IsNullOrWhiteSpace(reference))
+        {
+            parts.Add($"reference={Uri.EscapeDataString(reference.Trim())}");
+        }
+        return PublicApiClient.GetAsync<BookingDto[]>(factory.CreateClient("Api"),
+            "api/bookings" + (parts.Count == 0 ? "" : "?" + string.Join("&", parts)));
+    }
+
+    /// <summary>Cancels a booking. The server decides (204, 403, 404, 409); the 409 message is returned as-is.</summary>
+    public async Task<BookingCancelResult> CancelAsync(int id)
+    {
+        try
+        {
+            using var response = await factory.CreateClient("Api").PostAsync($"api/bookings/{id}/cancel", null);
+            if (response.IsSuccessStatusCode)
+            {
+                return new BookingCancelResult(true);
+            }
+
+            return response.StatusCode switch
+            {
+                HttpStatusCode.Forbidden => new BookingCancelResult(false, CancelForbiddenMessage),
+                HttpStatusCode.NotFound => new BookingCancelResult(false, CancelNotFoundMessage),
+                _ => new BookingCancelResult(false, (await ApiProblem.ReadAsync(response)).General() ?? PublicApiClient.Fallback)
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return new BookingCancelResult(false, ApiProblem.Unreachable.General());
+        }
+    }
 
     public async Task<BookingCreateResult> CreateAsync(CreateBookingRequest request)
     {
@@ -99,11 +145,22 @@ public static class SeatSelection
         map.Seats.Where(s => selected.Contains(s.SeatId)).Sum(s => s.Price);
 }
 
-/// <summary>Text shown for bookings on the confirmation and my-bookings screens.</summary>
+/// <summary>Text and cancel rules shown for bookings on the confirmation, my-bookings and staff booking screens.</summary>
 public static class BookingText
 {
+    public static readonly string LateCancelMessage =
+        $"Bookings can only be cancelled up to {BookingLimits.CancellationLimitHours} hours before the showing starts.";
+
     public static string Seats(BookingDto booking) =>
         string.Join(", ", booking.Seats.Select(s => $"Row {s.Row} seat {s.Number} ({s.Type})"));
 
     public static string Sek(decimal amount) => $"{amount.ToString("0.##", CultureInfo.InvariantCulture)} SEK";
+
+    /// <summary>A Cancel button is offered only for a Confirmed booking whose showing has not started.</summary>
+    public static bool CanCancel(BookingDto booking, DateTime nowUtc) =>
+        booking.Status == BookingStatus.Confirmed && booking.Start > nowUtc;
+
+    /// <summary>True inside the customer cancellation limit; exactly at the limit is still allowed. The server is authoritative.</summary>
+    public static bool IsTooLateForCustomer(BookingDto booking, DateTime nowUtc) =>
+        booking.Start - TimeSpan.FromHours(BookingLimits.CancellationLimitHours) < nowUtc;
 }

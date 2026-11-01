@@ -9,6 +9,15 @@
 
 <h1>My bookings</h1>
 
+@if (notice is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Success">@notice</AlertBox>
+}
+@if (actionError is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@actionError</AlertBox>
+}
+
 <div class="tab-list" role="tablist" aria-label="Bookings">
     <button type="button" role="tab" id="tab-upcoming" class="tab" aria-selected="@Selected(BookingScope.Upcoming)"
             aria-controls="bookings-panel" @onclick="() => SelectAsync(BookingScope.Upcoming)">Upcoming</button>
@@ -34,18 +43,38 @@
     {
         <table class="data-table">
             <thead>
-                <tr><th>Reference</th><th>Movie</th><th>Time</th><th>Seats</th><th>Total</th><th>Status</th></tr>
+                <tr><th>Reference</th><th>Movie</th><th>Time</th><th>Seats</th><th>Total</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var booking in bookings)
                 {
+                    var now = DateTime.UtcNow;
                     <tr>
                         <td>@booking.Reference</td>
                         <td>@booking.MovieTitle</td>
-                        <td>@DisplayTime.ToZone(booking.Start, zone).ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture)</td>
+                        <td>@Local(booking.Start)</td>
                         <td>@BookingText.Seats(booking)</td>
                         <td>@BookingText.Sek(booking.TotalPrice)</td>
                         <td>@booking.Status</td>
+                        <td>
+                            @if (confirmingId == booking.Id)
+                            {
+                                <div class="alert alert-error" role="alertdialog" aria-label="Confirm cancel">
+                                    <p>Cancel booking @booking.Reference for “@booking.MovieTitle” on @Local(booking.Start)? The seats will be released.</p>
+                                    <AppButton Variant="AppButton.ButtonVariant.Danger" Disabled="busy" OnClick="() => CancelAsync(booking)">Yes, cancel booking</AppButton>
+                                    <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="StopConfirming">Keep booking</AppButton>
+                                </div>
+                            }
+                            else if (BookingText.CanCancel(booking, now))
+                            {
+                                var tooLate = BookingText.IsTooLateForCustomer(booking, now);
+                                <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy || tooLate" OnClick="() => Ask(booking)">Cancel</AppButton>
+                                @if (tooLate)
+                                {
+                                    <p class="text-muted">@BookingText.LateCancelMessage</p>
+                                }
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -59,9 +88,15 @@
     private TimeZoneInfo zone = TimeZoneInfo.Local;
     private bool loading = true;
     private string? error;
+    private string? notice;
+    private string? actionError;
     private int requestId;
+    private int? confirmingId;
+    private bool busy;
 
     private string Selected(BookingScope tab) => (scope == tab).ToString().ToLowerInvariant();
+
+    private string Local(DateTime utc) => DisplayTime.ToZone(utc, zone).ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
 
     protected override async Task OnInitializedAsync()
     {
@@ -73,7 +108,43 @@
     private Task SelectAsync(BookingScope tab)
     {
         scope = tab;
+        confirmingId = null;
+        notice = null;
+        actionError = null;
         return LoadAsync();
+    }
+
+    private void Ask(BookingDto booking)
+    {
+        confirmingId = booking.Id;
+        notice = null;
+        actionError = null;
+    }
+
+    private void StopConfirming() => confirmingId = null;
+
+    /// <summary>Cancels after the confirm panel, then reloads: on success the booking moves to History as Cancelled; on a refusal (for example a 409) the API's message is shown.</summary>
+    private async Task CancelAsync(BookingDto booking)
+    {
+        busy = true;
+        try
+        {
+            var result = await Api.CancelAsync(booking.Id);
+            confirmingId = null;
+            if (result.Success)
+            {
+                notice = $"Booking {booking.Reference} was cancelled. You can find it under History.";
+            }
+            else
+            {
+                actionError = result.Error;
+            }
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     /// <summary>Loads the current tab. Only the newest request counts, so a slow older answer cannot overwrite it.</summary>
