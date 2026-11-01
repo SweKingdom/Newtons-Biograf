@@ -132,3 +132,21 @@ Tips and warnings:
 
 **View auditoriums**
 - The auditorium list and each auditorium's details show Name, Rows, Seats per row, Capacity and VIP rows. Anyone can view them, without signing in.
+
+## How to set VIP rows and seat prices
+
+Admins can mark a whole row of an auditorium as VIP, or set it back to Standard. Seat prices are set by the system configuration, not in the app.
+
+1. Open the auditorium you want to change under **Auditoriums**.
+2. Find the row you want to change.
+3. Set the row's seat type to **VIP** or **Standard**. Every seat in that row takes the new type. Other rows are not changed.
+4. Save. Doing the same change twice has no further effect.
+
+**Tips**
+- Seat type applies to a whole row only. You cannot mark single seats as VIP.
+- Current prices are 140 SEK for a Standard seat and 200 SEK for a VIP seat. Customers see these prices when they book.
+
+**Warnings**
+- Changing a row to VIP or Standard does not change the price of bookings that already exist.
+- Only Admins can change seat types. Staff and Customer accounts receive an access error.
+- Price changes are made by the system administrator in the configuration, not in the app.

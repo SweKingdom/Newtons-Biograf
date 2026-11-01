@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
+using NewtonsBiograf.Api.Pricing;
 using NewtonsBiograf.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,12 @@ builder.Services.AddOptions<JwtOptions>()
     .Validate(o => o.ExpiryMinutes > 0, "Configuration value 'Jwt:ExpiryMinutes' must be greater than 0.")
     .ValidateOnStart();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddOptions<PricingOptions>()
+    .BindConfiguration(PricingOptions.Section)
+    .Validate(o => o.StandardSeat > 0, "Configuration value 'Pricing:StandardSeat' is missing or not greater than 0.")
+    .Validate(o => o.VipSeat > 0, "Configuration value 'Pricing:VipSeat' is missing or not greater than 0.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<IPriceCalculator, PriceCalculator>();
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.User.RequireUniqueEmail = true;
