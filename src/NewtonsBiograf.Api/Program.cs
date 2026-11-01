@@ -18,6 +18,7 @@ var clientOrigin = builder.Configuration["Cors:ClientOrigin"]
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Configuration value 'ConnectionStrings:Default' is missing.");
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddOptions<JwtOptions>()
