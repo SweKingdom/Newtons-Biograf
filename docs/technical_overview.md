@@ -540,3 +540,10 @@ Known gaps: `ShowingService.ValidateSlotAsync` uses `DateTime.UtcNow`, so showin
 - Scenario classes: `BookingScenarios`, `CancellationScenarios`, `ShowingOverlapScenarios`, `AccessScenarios`.
 - Known gap: no Seed scenario exists until the seeder is built (US-140).
 - Run the `dotnet test` commands locally. The document records no pass results.
+
+## Project documentation (US-142)
+
+- `README.md` (repo root) is the entry point for reviewers: project description, technology, run guide for API and client, intended accounts, three user scenarios and a technique map (generics, delegates/events, LINQ, async/await) with file references.
+- Startup behaviour is documented as it is on the current branch: no migration, seeding or `Seed:Password`. This section must be updated when US-140 is merged.
+- Database file: `newtonsbiograf.db` (from `ConnectionStrings:Default`).
+- Open: the seeded account password and the fresh-clone check (AC 4) wait for US-140.
