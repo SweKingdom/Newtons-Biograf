@@ -90,3 +90,19 @@ Admins can replace or remove the permissions of a Staff account. This changes wh
 - A staff member who is already signed in keeps their old permissions until their session token expires (default 60 minutes). Ask them to sign out and sign in again to apply the change at once.
 - Unknown permission names are rejected, and nothing is changed.
 - Sending the same list twice is safe.
+
+## How to manage movies
+
+Use the Movies screen to keep the movie programme up to date. You need the **Manage movies** permission (or the Admin role) to see the Movies menu entry.
+
+1. Click **Movies** in the top menu. The table lists every movie with its **Title**, **Genre**, **Age rating** and **Length**.
+2. To add a movie, click **Add movie**.
+3. Fill in **Title**, **Genre**, **Age rating**, **Length** and **Description**. Pick the genre and age rating from the dropdowns; both start at "Select…".
+4. Click **Save**. The movie appears in the list with a confirmation message.
+5. To change a movie, click **Edit** on its row, change the fields, and click **Save**.
+6. To delete a movie, click **Delete** on its row and confirm in the panel that opens.
+
+**Tips and warnings**
+- If a field is invalid, a message appears under that field. Correct it and save again. Nothing is saved until all errors are fixed.
+- You cannot delete a movie that has future showings. The screen shows the reason (for example, "Movie cannot be deleted because it has future showings."), and the movie stays in the list.
+- If you do not see the Movies menu entry, ask an administrator to check your staff permissions.
