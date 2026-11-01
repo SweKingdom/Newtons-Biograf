@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +13,23 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddOptions<JwtOptions>()
+    .BindConfiguration("Jwt")
+    .Validate(o => o.Key.Length >= 32, "Configuration value 'Jwt:Key' is missing or shorter than 32 characters.")
+    .Validate(o => o.ExpiryMinutes > 0, "Configuration value 'Jwt:ExpiryMinutes' must be greater than 0.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<TokenService>();
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+    })
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<AppDbContext>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
