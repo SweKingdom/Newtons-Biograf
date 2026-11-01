@@ -277,3 +277,31 @@ Defaults live only in `appsettings.json`. The application fails at startup if a 
 **Tests:** `AuditoriumClientTests` (API client), `DesignSystemTests` (US-128 page, CSS and nav structure). `MovieClientTests` stub handlers are `internal` for reuse. The UI behaviour has no automated tests (no bUnit) and is verified by the manual checks in the task document.
 
 **Open points:** none new. See the US-126 open points for the anonymous `GET` response contents.
+
+## Showing scheduling (US-129)
+
+**Endpoints**
+- `POST /api/showings` (policy `ManageShowings`): body `ShowingRequest {MovieId, AuditoriumId, StartTime}`. Returns 201 with `Location` and `ShowingDto`. Errors: 400 ValidationProblemDetails (`StartTime`, `MovieId`, `AuditoriumId`, collected together), 401, 403, 409 ProblemDetails (overlap).
+- `GET /api/showings/{id}` (policy `ManageShowings`): Location target; US-130 may extend it.
+
+**Rules (in `ShowingService`)**
+- `EndTime = StartTime + Movie.LengthMinutes + Showings:CleaningMinutes`.
+- `StartTime` must be later than UtcNow. Unspecified kind or missing value gives 400. Offsets are converted to UTC.
+- Overlap: an existing non-cancelled showing in the same auditorium where `existing.Start < new.End AND new.Start < existing.End`. Touching boundaries are allowed.
+- `ShowingService.ValidateSlotAsync(request, excludeId, ct)` returns `SlotOk`, `SlotInvalid` or `SlotConflict`. `excludeId` is for the US-130 edit flow.
+
+**Configuration**
+
+| Key | Default | Notes |
+|---|---|---|
+| `Showings:CleaningMinutes` | 15 | Must be >= 0 |
+| `Showings:DisplayTimeZone` | Europe/Stockholm | Must be a known time-zone id; used for display in conflict messages |
+
+Options are bound and validated on startup in `Program.cs`.
+
+**Data**
+- Times are stored in UTC.
+- No migration. The composite index `(AuditoriumId, StartTime)` from US-117 supports the overlap query.
+
+**Tests**
+- `tests/NewtonsBiograf.Tests/ShowingTests.cs`: scenario tests for AC 1–8 on in-memory SQLite, including a daylight-saving case.
