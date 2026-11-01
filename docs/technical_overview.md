@@ -399,3 +399,21 @@ Configuration: `Showings:DisplayTimeZone` (Europe/Stockholm).
 **Shared contracts:** `Shared/Dtos/BookingDto.cs`: `CreateBookingRequest`, `BookingSeatDto`, `BookingDto`, `SeatConflictDto`.
 
 **Tests:** `BookingCreateTests` covers each AC, including a deterministic index-rollback test and a parallel race on a file database.
+
+## Booking read API (US-136)
+
+Read endpoints on `BookingsController` (route `api/bookings`, class-level `[Authorize]`). All reads share the `ToDto` projection in `BookingService`, use `AsNoTracking`, and run as a single query without N+1 lookups. Times are returned in UTC.
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET api/bookings/mine?scope=upcoming\|history` | CustomerOnly | 200 `BookingDto[]`; 400 missing or unknown scope; 401; 403 |
+| `GET api/bookings/{id:int}` | Authenticated; owner or policy `ManageBookings` | 200 `BookingDto`; 401; 403 non-owner without permission; 404 unknown id |
+| `GET api/bookings?showingId=&reference=` | `ManageBookings` | 200 `BookingDto[]`; 400 when no filter is given; 401; 403 |
+
+- Upcoming: `Status == Confirmed && Showing.StartTime > clock.UtcNow`, ordered by start ascending. History is the negation, ordered by start descending. Both use the same `IClock`.
+- `scope` is parsed case-insensitively into `BookingScope` (`Upcoming`, `History`).
+- Ownership: `booking.UserId` must equal the token `sub`. Staff access uses `IAuthorizationService.AuthorizeAsync(User, "ManageBookings")`.
+- Reference search: exact match, case-insensitive (normalised to upper case). Results are capped at 200 and ordered by showing start descending.
+- Seats are returned from `BookingSeats` regardless of `IsActive`, so history keeps its seats.
+- `BookingDto` fields: `Id`, `Reference`, `MovieTitle`, `Auditorium`, `ShowingStart`, `Seats`, `TotalPrice`, `Status`, `CreatedAt`, `CancelledAt?`.
+- Limitation: the auditorium field is named `Auditorium`, not `AuditoriumName`.
