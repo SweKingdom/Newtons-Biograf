@@ -12,8 +12,9 @@ node_modules/
 TestResults/
 *.log
 
-# Local SQLite database
+# Local SQLite databases; the seeded demo database newtons.db is committed
 *.db
+!newtons.db
 *.db-shm
 *.db-wal
 
