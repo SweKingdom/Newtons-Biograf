@@ -1,0 +1,15 @@
+<div class="form-field">
+    <label for="@Id">@Label</label>
+    @ChildContent
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <p class="form-field-error" id="@($"{Id}-error")" role="alert">@Error</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

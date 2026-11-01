@@ -3,11 +3,22 @@
 
 <PageTitle>Newtons Biograf</PageTitle>
 
-<h1>Newtons Biograf</h1>
-<p>API status: @status</p>
+<h1>Now showing at Newtons Biograf</h1>
+<p class="text-muted">Movies, showings and seat booking are coming soon.</p>
+
+<Card Title="System status">
+    @if (status is null)
+    {
+        <Spinner />
+    }
+    else
+    {
+        <p>API status: @status</p>
+    }
+</Card>
 
 @code {
-    private string status = "checking...";
+    private string? status;
 
     protected override async Task OnInitializedAsync()
     {
