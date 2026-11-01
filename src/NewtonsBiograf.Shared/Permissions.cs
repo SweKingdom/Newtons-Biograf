@@ -17,3 +17,9 @@ public static class Roles
     public const string Staff = "Staff";
     public const string Customer = "Customer";
 }
+
+/// <summary>Role-based policy names used by both the API and the client.</summary>
+public static class PolicyNames
+{
+    public const string CustomerOnly = "CustomerOnly";
+}

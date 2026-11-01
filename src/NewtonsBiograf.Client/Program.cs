@@ -13,9 +13,10 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"]
     ?? throw new InvalidOperationException("Configuration value 'ApiBaseUrl' is missing.");
 
-// Same permission policies as the API (Admin or the permission claim). Hiding in the UI is cosmetic; the API enforces.
+// Same policies as the API (customer role; Admin or the permission claim). Hiding in the UI is cosmetic; the API enforces.
 builder.Services.AddAuthorizationCore(options =>
 {
+    options.AddPolicy(PolicyNames.CustomerOnly, policy => policy.RequireRole(Roles.Customer));
     foreach (var permission in Permissions.All)
     {
         options.AddPolicy(permission, policy => policy
@@ -36,5 +37,6 @@ builder.Services.AddHttpClient<PublicApiClient>(client => client.BaseAddress = n
 builder.Services.AddScoped<MovieApiClient>();
 builder.Services.AddScoped<AuditoriumApiClient>();
 builder.Services.AddScoped<ShowingApiClient>();
+builder.Services.AddScoped<BookingApiClient>();
 
 await builder.Build().RunAsync();

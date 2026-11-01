@@ -51,7 +51,7 @@ public sealed record BookingConflict(SeatMapDto SeatMap) : BookingResult;
 
 public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvider clock, IBookingEventPublisher publisher)
 {
-    public const int MaxSeats = 8;
+    public const int MaxSeats = BookingLimits.MaxSeats;
     public const int ReferenceLength = 8;
     public const int MaxReferenceRetries = 5;
     public const int MaxSearchResults = 2 * 100;

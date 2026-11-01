@@ -1,5 +1,11 @@
 namespace NewtonsBiograf.Shared;
 
+/// <summary>Limits shared by the API validation and the booking screens.</summary>
+public static class BookingLimits
+{
+    public const int MaxSeats = 8;
+}
+
 /// <summary>Book 1–8 distinct seats of the showing's auditorium.</summary>
 public record CreateBookingRequest(int ShowingId, List<int> SeatIds);
 

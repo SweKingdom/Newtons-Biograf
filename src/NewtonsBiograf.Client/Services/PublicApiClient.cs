@@ -16,7 +16,7 @@ public sealed record ShowingFilterModel
     public string? Title { get; init; }
 }
 
-/// <summary>Outcome of a public API call: the value, or a plain-language error, or NotFound (404).</summary>
+/// <summary>Outcome of an API read: the value, or a plain-language error, or NotFound (404).</summary>
 public sealed record PublicResult<T>(T? Value, string? Error = null, bool NotFound = false)
 {
     public bool Success => Error is null && !NotFound;
@@ -25,16 +25,16 @@ public sealed record PublicResult<T>(T? Value, string? Error = null, bool NotFou
 /// <summary>Typed client for the anonymous public endpoints; needs no sign-in.</summary>
 public sealed class PublicApiClient(HttpClient http)
 {
-    private const string Fallback = "Something went wrong. Please try again.";
+    internal const string Fallback = "Something went wrong. Please try again.";
 
     public Task<PublicResult<ShowingListItem[]>> GetShowingsAsync(ShowingFilterModel? filter = null) =>
-        GetAsync<ShowingListItem[]>("api/public/showings" + Query(filter));
+        GetAsync<ShowingListItem[]>(http, "api/public/showings" + Query(filter));
 
-    public Task<PublicResult<string[]>> GetGenresAsync() => GetAsync<string[]>("api/public/genres");
+    public Task<PublicResult<string[]>> GetGenresAsync() => GetAsync<string[]>(http, "api/public/genres");
 
-    public Task<PublicResult<AuditoriumOption[]>> GetAuditoriumsAsync() => GetAsync<AuditoriumOption[]>("api/public/auditoriums");
+    public Task<PublicResult<AuditoriumOption[]>> GetAuditoriumsAsync() => GetAsync<AuditoriumOption[]>(http, "api/public/auditoriums");
 
-    public Task<PublicResult<MovieDetailDto>> GetMovieAsync(int id) => GetAsync<MovieDetailDto>($"api/public/movies/{id}");
+    public Task<PublicResult<MovieDetailDto>> GetMovieAsync(int id) => GetAsync<MovieDetailDto>(http, $"api/public/movies/{id}");
 
     /// <summary>The query string for the filter (with the leading "?"), or "" when nothing is set.</summary>
     internal static string Query(ShowingFilterModel? filter)
@@ -55,7 +55,8 @@ public sealed class PublicApiClient(HttpClient http)
         }
     }
 
-    private async Task<PublicResult<T>> GetAsync<T>(string url)
+    /// <summary>GETs <paramref name="url"/> and reads the JSON body; failures become a plain-language error, never an exception.</summary>
+    internal static async Task<PublicResult<T>> GetAsync<T>(HttpClient http, string url)
     {
         try
         {
