@@ -445,4 +445,137 @@ public sealed class AuditoriumTests : IAsyncLifetime
             Assert.Equal(["Existing"], await WithDb(db => db.Auditoriums.Select(a => a.Name).ToListAsync()));
         }
     }
+
+    private Task<HttpResponseMessage> SetRowType(int id, object row, object? body, string? token) =>
+        Send(HttpMethod.Put, $"{Url}/{id}/rows/{row}/type", token, body);
+
+    private async Task<List<(int Row, SeatType Type)>> RowTypes(int id) =>
+        (await SeatsOf(id)).Select(s => (s.RowNumber, s.Type)).Distinct().ToList();
+
+    [Fact]
+    public async Task Us127_Ac1_Setting_a_row_to_VIP_changes_only_that_rows_seats_and_Standard_sets_it_back()
+    {
+        var id = await Create("Salong 1", 3, 4);
+
+        var vip = await SetRowType(id, 2, new { Type = "VIP" }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, vip.StatusCode);
+        var seats = await SeatsOf(id);
+        Assert.All(seats, s => Assert.Equal(s.RowNumber == 2 ? SeatType.VIP : SeatType.Standard, s.Type));
+        Assert.Equal(4, seats.Count(s => s.Type == SeatType.VIP));
+        var dto = (await (await Send(HttpMethod.Get, $"{Url}/{id}")).Content.ReadFromJsonAsync<AuditoriumDto>(Json))!;
+        Assert.Equal([2], dto.VipRows);
+
+        var standard = await SetRowType(id, 2, new { Type = "Standard" }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, standard.StatusCode);
+        Assert.All(await SeatsOf(id), s => Assert.Equal(SeatType.Standard, s.Type));
+    }
+
+    [Fact]
+    public async Task Us127_Ac1_Repeating_the_same_call_is_idempotent_and_a_partly_VIP_row_becomes_fully_VIP()
+    {
+        var id = await Create("Salong 1", 2, 3);
+        await WithDb(async db =>
+        {
+            (await db.Seats.FirstAsync(s => s.AuditoriumId == id && s.RowNumber == 1)).Type = SeatType.VIP;
+            return await db.SaveChangesAsync();
+        });
+
+        var first = await SetRowType(id, 1, new { Type = "VIP" }, AdminToken);
+        var second = await SetRowType(id, 1, new { Type = "VIP" }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+        Assert.Equal([(1, SeatType.VIP), (2, SeatType.Standard)], await RowTypes(id));
+    }
+
+    [Fact]
+    public async Task Us127_Ac1_Only_the_addressed_auditorium_changes()
+    {
+        var id = await Create("Salong 1", 2, 2);
+        var other = await Create("Salong 2", 2, 2);
+
+        await SetRowType(id, 1, new { Type = "VIP" }, AdminToken);
+
+        Assert.All(await SeatsOf(other), s => Assert.Equal(SeatType.Standard, s.Type));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(-1)]
+    public async Task Us127_Ac2_Row_outside_the_auditorium_returns_404_and_changes_nothing(int row)
+    {
+        var id = await Create("Salong 1", 3, 4);
+
+        var response = await SetRowType(id, row, new { Type = "VIP" }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.All(await SeatsOf(id), s => Assert.Equal(SeatType.Standard, s.Type));
+    }
+
+    [Fact]
+    public async Task Us127_Ac2_Unknown_auditorium_returns_404()
+    {
+        Assert.Equal(HttpStatusCode.NotFound, (await SetRowType(9999, 1, new { Type = "VIP" }, AdminToken)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Gold")]
+    [InlineData("")]
+    [InlineData(1)]
+    [InlineData(null)]
+    public async Task Us127_Ac2_Unknown_or_missing_Type_returns_400_keyed_by_Type_and_changes_nothing(object? type)
+    {
+        var id = await Create("Salong 1", 2, 2);
+
+        var response = await SetRowType(id, 1, new Dictionary<string, object?> { ["Type"] = type }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotEmpty((await Errors(response))["Type"]);
+        Assert.All(await SeatsOf(id), s => Assert.Equal(SeatType.Standard, s.Type));
+    }
+
+    [Fact]
+    public async Task Us127_Ac2_A_body_without_Type_returns_400()
+    {
+        var id = await Create("Salong 1", 2, 2);
+
+        var response = await SetRowType(id, 1, new { }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotEmpty((await Errors(response))["Type"]);
+        Assert.All(await SeatsOf(id), s => Assert.Equal(SeatType.Standard, s.Type));
+    }
+
+    [Theory]
+    [InlineData(null, null, 401)]
+    [InlineData(Roles.Customer, null, 403)]
+    [InlineData(Roles.Staff, Permissions.ManageShowings, 403)]
+    public async Task Us127_Ac2_Only_an_admin_may_change_a_row_type(string? role, string? permission, int expected)
+    {
+        var id = await Create("Salong 1", 2, 2);
+        var token = role is null ? null : Token(role, permission is null ? Array.Empty<string>() : new[] { permission });
+
+        var response = await SetRowType(id, 1, new { Type = "VIP" }, token);
+
+        Assert.Equal(expected, (int)response.StatusCode);
+        Assert.All(await SeatsOf(id), s => Assert.Equal(SeatType.Standard, s.Type));
+    }
+
+    [Fact]
+    public async Task Us127_Ac6_Changing_a_row_type_leaves_existing_bookings_and_their_prices_untouched()
+    {
+        var id = await Create("Salong 1", 2, 2);
+        await SeedBooking(id, TimeSpan.FromDays(1), ShowingStatus.Scheduled, 1, 1);
+
+        var response = await SetRowType(id, 1, new { Type = "VIP" }, AdminToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var booking = await WithDb(db => db.Bookings.Include(b => b.Seats).SingleAsync());
+        Assert.Equal(100m, booking.TotalPrice);
+        Assert.Equal(100m, Assert.Single(booking.Seats).Price);
+        Assert.True(booking.Seats.Single().IsActive);
+    }
 }

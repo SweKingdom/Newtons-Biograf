@@ -18,3 +18,12 @@ public record AuditoriumRequest
 
 /// <summary>Capacity = Rows × SeatsPerRow. VipRows are the row numbers whose seats are all VIP, ascending.</summary>
 public record AuditoriumDto(int Id, string Name, int Rows, int SeatsPerRow, int Capacity, int[] VipRows);
+
+/// <summary>Payload for setting a whole row to Standard or VIP. Nullable so that a missing Type is rejected, not read as Standard.</summary>
+public record RowTypeRequest(
+    [Required(ErrorMessage = "Type is required"),
+     EnumDataType(typeof(SeatType), ErrorMessage = "Type must be Standard or VIP")]
+    SeatType? Type);
+
+/// <summary>Current seat prices in whole SEK.</summary>
+public record PricingDto(decimal StandardSeat, decimal VipSeat);

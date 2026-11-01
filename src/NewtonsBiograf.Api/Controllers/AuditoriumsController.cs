@@ -117,6 +117,29 @@ public class AuditoriumsController(IRepository<Auditorium> auditoriums, IReposit
         return await TrySave(ct) ? NoContent() : NameTakenProblem();
     }
 
+    /// <summary>
+    /// Sets every seat of the row to the requested type (idempotent). Existing bookings keep their seats and their
+    /// stored prices; only future bookings are priced at the new type.
+    /// </summary>
+    [HttpPut("{id:int}/rows/{row:int}/type")]
+    [Authorize(Policy = Policies.AdminOnly)]
+    public async Task<IActionResult> SetRowType(int id, int row, RowTypeRequest request, CancellationToken ct)
+    {
+        var auditorium = await auditoriums.GetByIdAsync(id, ct);
+        if (auditorium is null || row < 1 || row > auditorium.Rows)
+        {
+            return NotFound();
+        }
+
+        var rowSeats = await seats.Query().Where(s => s.AuditoriumId == id && s.RowNumber == row).ToListAsync(ct);
+        foreach (var seat in rowSeats)
+        {
+            seat.Type = request.Type!.Value;
+        }
+        await seats.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     private static IEnumerable<(int Row, int Number)> Positions(int rows, int perRow) =>
         from row in Enumerable.Range(1, rows)
         from number in Enumerable.Range(1, perRow)
