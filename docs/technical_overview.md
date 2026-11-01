@@ -417,3 +417,44 @@ Read endpoints on `BookingsController` (route `api/bookings`, class-level `[Auth
 - Seats are returned from `BookingSeats` regardless of `IsActive`, so history keeps its seats.
 - `BookingDto` fields: `Id`, `Reference`, `MovieTitle`, `Auditorium`, `ShowingStart`, `Seats`, `TotalPrice`, `Status`, `CreatedAt`, `CancelledAt?`.
 - Limitation: the auditorium field is named `Auditorium`, not `AuditoriumName`.
+
+## Customer booking screens (US-137)
+
+**Routes**
+
+| Route | Page | Access |
+|---|---|---|
+| `/showings/{ShowingId:int}/book` | `Pages/Book.razor` | `CustomerOnly` policy |
+| `/my-bookings` | `Pages/MyBookings.razor` | `CustomerOnly` policy |
+
+**Components and services**
+
+| Name | Location | Purpose |
+|---|---|---|
+| `SeatGrid` | `Components/SeatGrid.razor` | Booking mode via `Seats`, `Selectable`, `SelectedIds`; admin mode unchanged |
+| `BookingApiClient` | `Services/BookingApiClient.cs` | `GetSeatMapAsync(id)`, `CreateAsync(request)` (returns `BookingDto`, `SeatConflictDto` or problem message), `GetMineAsync(scope)`; uses `AuthMessageHandler` |
+| `SeatSelection` | `Services/BookingApiClient.cs` | Selection rules, testable without rendering |
+| `BookingText` | `Services/BookingApiClient.cs` | Display strings for booking messages |
+| `PublicApiClient` | `Services/PublicApiClient.cs` | GET helper made reusable |
+
+**Shared constants**
+- `BookingLimits.MaxSeats = 8` (`Dtos/BookingDto.cs`), used by `BookingService.MaxSeats` on the API and by the client.
+- `PolicyNames.CustomerOnly` (`Permissions.cs`), mapped to `Policies.CustomerOnly` on the API (`Auth/Permissions.cs`) and registered in client `Program.cs`.
+
+**Behaviour rules**
+- Client total = sum of `SeatDto.Price` for selected seats. Display only; the server calculates the booked amount.
+- On 409: the client parses `SeatConflictDto`, replaces the seat map, and calls `selected.IntersectWith(freeIds)`.
+- Anonymous users are redirected to login through `RedirectToLogin` with `returnUrl` (FT-111).
+- A showing with `IsBookable` = false renders the closed message and no seat buttons. A 404 renders a not-found message.
+- Times are converted from UTC to local time for display.
+
+**Accessibility**
+- Seats are `<button>` elements with `aria-pressed` and an `aria-label` (for example "Row 3, seat 5, VIP, free").
+- Each seat state has a text cue as well as colour. Seat colours use CSS variables in `wwwroot/css/app.css`.
+- A live region (`role="status"`) announces the total and errors. Tabs on My bookings use `role="tablist"` and `aria-selected`.
+
+**Navigation**
+- "My bookings" link in `Layout/MainLayout.razor` under `AuthorizeView Policy="CustomerOnly"`. `NavMenu.razor` does not exist in this project.
+
+**Known gaps**
+- No automated tests for clicks, the 409 UI flow, the confirmation rendering or the disabled-while-submitting state. These are covered by manual checks only.
