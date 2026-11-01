@@ -42,9 +42,7 @@ dotnet run --project src/NewtonsBiograf.Client
 
 The client calls the API at `ApiBaseUrl` (`src/NewtonsBiograf.Client/wwwroot/appsettings.json`, `https://localhost:7000/`). The API only accepts the client origin `Cors:ClientOrigin` (`https://localhost:5001`), so use the https client URL.
 
-The API uses the SQLite file named by `ConnectionStrings:Default` (`Data Source=newtonsbiograf.db`, created next to where you start the API). To start over, stop the API and delete that file.
-
-> **Status of seed data (US-140, not yet merged on this branch):** the API does not yet apply migrations or seed data when it starts, there is no `Seed:Password` setting and no committed `newtons.db`. Until US-140 lands, a fresh clone starts with no database and no accounts, so sections 6 and 7 cannot be followed end to end. The accounts below are the ones US-140 specifies; update the password row and the run notes, then repeat the fresh-clone check, when it is merged.
+The API uses the SQLite file named by `ConnectionStrings:Default` (`Data Source=newtonsbiograf.db`, created next to where you start the API). In Development the API applies the migrations and seeds the demo data (section 6) when it starts. To start over, stop the API and delete that file.
 
 ## 5. Configuration
 
@@ -61,21 +59,22 @@ API settings (`src/NewtonsBiograf.Api/appsettings.json`):
 | `Booking:CancellationLimitHours` | `2` | A customer may cancel until this many hours before the start |
 | `Showings:CleaningMinutes` | `15` | Added to the film length to get a showing's end time |
 | `Showings:DisplayTimeZone` | `Europe/Stockholm` | Time zone used to show times and to filter by date |
+| `Seed:Password` | the demo password in section 6 | Password given to every seeded account (demo only) |
 
 Example: `dotnet user-secrets set "Jwt:Key" "<random string of 32+ characters>" --project src/NewtonsBiograf.Api`
 
 ## 6. Seeded accounts
 
-Specified by US-140 (see the status note in section 4). All accounts share one demo password, the value of `Seed:Password`. It is for local demos only; the setting does not exist on this branch yet, so no password can be stated here.
+All accounts share one demo password: `Newtons-Demo-2026` (the value of `Seed:Password`). It is for local demos only; never use it outside a local demo.
 
 | Email | Role | Permissions | Password |
 |---|---|---|---|
-| `admin@newtons.local` | Admin | All (implicit) | value of `Seed:Password` |
-| `staff1@newtons.local` | Staff | `ManageMovies`, `ManageShowings` | value of `Seed:Password` |
-| `staff2@newtons.local` | Staff | `ManageBookings` | value of `Seed:Password` |
-| `customer1@newtons.local` | Customer | none | value of `Seed:Password` |
-| `customer2@newtons.local` | Customer | none | value of `Seed:Password` |
-| `customer3@newtons.local` | Customer | none | value of `Seed:Password` |
+| `admin@newtons.local` | Admin | All (implicit) | `Newtons-Demo-2026` |
+| `staff1@newtons.local` | Staff | `ManageMovies`, `ManageShowings` | `Newtons-Demo-2026` |
+| `staff2@newtons.local` | Staff | `ManageBookings` | `Newtons-Demo-2026` |
+| `customer1@newtons.local` | Customer | none | `Newtons-Demo-2026` |
+| `customer2@newtons.local` | Customer | none | `Newtons-Demo-2026` |
+| `customer3@newtons.local` | Customer | none | `Newtons-Demo-2026` |
 
 ## 7. User scenarios
 
@@ -129,7 +128,7 @@ Log in through **Log in** in the top menu (fields **Email** and **Password**).
 dotnet test
 ```
 
-The suite covers the API, the client services and the core business rules (booking, double booking, cancellation limits, showing overlap, access) against a real SQLite database. `npm run typecheck`, `npm run test` and `npm run build` run the same solution-level checks. `docs/TESTING.md` (US-143) is not written yet.
+The suite covers the API, the client services and the core business rules (booking, double booking, cancellation limits, showing overlap, access) against a real SQLite database. `npm run typecheck`, `npm run test` and `npm run build` run the same solution-level checks. The scenario list, the test names and how to run one class or one scenario are in [docs/TESTING.md](docs/TESTING.md).
 
 ## 10. Project structure
 
