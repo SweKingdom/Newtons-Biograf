@@ -547,3 +547,38 @@ Known gaps: `ShowingService.ValidateSlotAsync` uses `DateTime.UtcNow`, so showin
 - Startup behaviour is documented as it is on the current branch: no migration, seeding or `Seed:Password`. This section must be updated when US-140 is merged.
 - Database file: `newtonsbiograf.db` (from `ConnectionStrings:Default`).
 - Open: the seeded account password and the fresh-clone check (AC 4) wait for US-140.
+
+## Seed data and committed SQLite database (US-140)
+
+**Components**
+| Path | Purpose |
+|---|---|
+| `src/NewtonsBiograf.Api/Data/DbSeeder.cs` | `SeedAsync(AppDbContext, UserManager<ApplicationUser>, RoleManager<IdentityRole>, IConfiguration, DateTime nowUtc)`: roles, accounts, claims, auditoriums, seats, movies, showings, bookings. Writes via the context and respects the booking and showing rules. |
+| `src/NewtonsBiograf.Api/Program.cs` | Development only: `Database.MigrateAsync()`, then `SeedAsync` when `Seed:Enabled` is true. `nowUtc` = `DateTime.UtcNow`. |
+| `src/NewtonsBiograf.Api/Services/BookingService.cs` | Static `GenerateReference()`; `NewReference()` delegates to it. |
+| `src/NewtonsBiograf.Api/newtons.db` | Committed seed database. `.gitignore` has `!newtons.db`; `*.db-shm` and `*.db-wal` are ignored. |
+
+**Configuration**
+| Key | Value |
+|---|---|
+| `ConnectionStrings:Default` | `Data Source=newtons.db` |
+| `Seed:Enabled` | `true` by default; set to `false` to skip seeding. Tests set `Seed__Enabled=false`. |
+| `Seed:Password` | Demo password (documented in README). Must be at least 8 characters and meet Identity rules. |
+
+**Seed rules**
+- Roles `Admin`, `Staff`, `Customer` are created if missing.
+- Accounts are guarded by email. Staff claims use the existing permission claim type: `ManageMovies`, `ManageShowings` for `staff1`; `ManageBookings` for `staff2`.
+- Auditoriums are guarded by name: Salong 1 (8×12), Salong 2 (6×10), Salong 3 VIP (8×10, last two rows `IsVip`).
+- Movies are guarded by title. Ten movies, mixed ratings, lengths 90–170 min.
+- Showings: two or more per day for the next 14 days (Stockholm time); sequential per auditorium from 12:00; `End = Start + Length + 15 min`; status `Scheduled`; all starts after `nowUtc`.
+- Bookings: Confirmed and Cancelled, seat prices Standard 140 and VIP 200. The Cancelled booking has `BookingSeat.IsActive = false`. Seats are unique per showing for active rows (filtered unique index on `(ShowingId, SeatId)` where `IsActive = 1`).
+- Idempotency: if any showing exists, showings and bookings are skipped. Times are stored in UTC.
+
+**Top-up (Development only)**
+- Runs at startup. For each of the next 14 Stockholm days with no showing, adds seed showings with the same generator and overlap guard.
+- Does not modify or delete existing showings or bookings.
+- Never runs in Production.
+
+**Known gaps**
+- The committed file is a snapshot. Outside Development, showings are not refreshed.
+- The seed password is a demo value only.
