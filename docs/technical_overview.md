@@ -43,3 +43,13 @@ Enum values are stored as strings: Genre (Action, Comedy, Drama, Horror, SciFi, 
 - US-117: the initial migration `InitialCreate` and its snapshot are hand-written and have no `.Designer.cs`. They have not been run. Before release: run `dotnet test NewtonsBiograf.sln`, then `dotnet ef migrations add Check` (must be empty), then `dotnet ef migrations remove`. Regenerate `InitialCreate` if the check is not empty.
 - US-117: `BookingSeat.IsActive` has no database-level default; the default exists only in the CLR property.
 - No checks are configured for the project; no build or test has been run yet.
+
+## Client design system and layout (US-118)
+
+- **Styles:** `wwwroot/css/app.css` holds all design tokens on `:root` (`--color-*`, `--font-body`, `--font-heading`, `--space-1..6`, radius, shadow). No external fonts. The only stylesheet linked from `wwwroot/index.html` is `app.css` (plus the scoped Blazor bundle). Bootstrap is not used. Mobile breakpoint: 640px.
+- **Layout:** `Layout/MainLayout.razor` (+ `.razor.css`) provides header, top nav, `<main>@Body</main>` and footer. Below 640px the nav collapses behind a `<button aria-expanded>` toggle. No sidebar.
+- **Components** (`Components/`): `AppButton` (Variant Primary/Secondary/Danger), `FormField` (Label, Id, Error with `role="alert"`), `AlertBox` (Kind Info/Success/Error), `Spinner` (`role="status"`), `Card` (Title).
+- **Package references:** `NewtonsBiograf.Client.csproj` has an explicit `Microsoft.Extensions.Http` reference; the Client does not compile without it.
+- **Build and test scripts:** `package.json` exposes `typecheck`, `test` and `build`, which wrap `dotnet build` and `dotnet test`. No lint script.
+- **Tests:** `tests/NewtonsBiograf.Tests/DesignSystemTests.cs` checks the CSS and Razor source; components are not rendered.
+- **Known gaps:** FormField error is not linked via `aria-describedby`; Home.razor handles only `HttpRequestException`; visual review at 375px and desktop is pending.

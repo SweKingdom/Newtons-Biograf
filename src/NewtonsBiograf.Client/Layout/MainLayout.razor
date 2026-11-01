@@ -1,5 +1,35 @@
 @inherits LayoutComponentBase
 
-<main>
-    @Body
-</main>
+<div class="shell">
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="logo" href="/" aria-label="Newtons Biograf, home">Newtons <span>Biograf</span></a>
+            <button type="button" class="nav-toggle" aria-expanded="@navOpen.ToString().ToLowerInvariant()"
+                    aria-controls="main-nav" @onclick="ToggleNav">
+                @(navOpen ? "Close" : "Menu")
+            </button>
+            <nav id="main-nav" class="main-nav @(navOpen ? "open" : "")" aria-label="Main">
+                <ul>
+                    <li><NavLink href="" Match="NavLinkMatch.All" @onclick="CloseNav">Home</NavLink></li>
+                </ul>
+            </nav>
+            <div class="auth-slot"></div>
+        </div>
+    </header>
+
+    <main class="container">
+        @Body
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">&copy; Newtons Biograf</div>
+    </footer>
+</div>
+
+@code {
+    private bool navOpen;
+
+    private void ToggleNav() => navOpen = !navOpen;
+
+    private void CloseNav() => navOpen = false;
+}

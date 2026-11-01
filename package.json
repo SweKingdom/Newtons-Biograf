@@ -1,0 +1,10 @@
+{
+  "name": "newtons-biograf",
+  "private": true,
+  "description": "Script entry points for the .NET solution so the project checks can run.",
+  "scripts": {
+    "typecheck": "dotnet build NewtonsBiograf.sln --nologo",
+    "test": "dotnet test NewtonsBiograf.sln --nologo",
+    "build": "dotnet build NewtonsBiograf.sln --nologo -c Release"
+  }
+}

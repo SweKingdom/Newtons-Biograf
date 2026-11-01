@@ -1,0 +1,8 @@
+<div class="alert alert-@Kind.ToString().ToLowerInvariant()" role="@(Kind == AlertKind.Error ? "alert" : "status")">@ChildContent</div>
+
+@code {
+    public enum AlertKind { Info, Success, Error }
+
+    [Parameter] public AlertKind Kind { get; set; } = AlertKind.Info;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
