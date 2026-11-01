@@ -458,3 +458,34 @@ Read endpoints on `BookingsController` (route `api/bookings`, class-level `[Auth
 
 **Known gaps**
 - No automated tests for clicks, the 409 UI flow, the confirmation rendering or the disabled-while-submitting state. These are covered by manual checks only.
+
+## Booking cancellation (US-138)
+
+**Endpoint:** `POST api/bookings/{id}/cancel` (`[Authorize]`, `BookingsController`).
+
+| Result | HTTP | Condition |
+|---|---|---|
+| Cancelled | 204 | Owner, now ≤ start − `CancellationLimitHours`; or Admin / ManageBookings at any time |
+| Not found | 404 | Unknown booking id |
+| Forbidden | 403 | Not the owner and not Admin / ManageBookings; or staff without ManageBookings |
+| Already cancelled | 409 | "Booking is already cancelled." (checked before the time rule) |
+| Too late | 409 | "Bookings can only be cancelled up to 2 hours before the showing starts." (uses the configured limit) |
+| No token | 401 | Standard authentication |
+
+**Check order:** 404, 403, already cancelled, time rule.
+
+**Service:** `BookingService.CancelAsync(int, ClaimsPrincipal)` returns `BookingCancelledOk`, `BookingAlreadyCancelled` or `BookingTooLate`. Exceptions are not used for these outcomes.
+
+**Effects on success:**
+- `Booking.Status` = `Cancelled`; `Booking.CancelledAt` = `TimeProvider` now.
+- BookingSeat rows of the booking get `IsActive = false`, so the seats show as free in the seat map.
+- `BookingCancelled` is raised once through `IBookingEvents`, after commit. Subscriber exceptions are logged and do not undo the cancellation.
+- Log line: "Booking … cancelled for showing …" (once per success).
+
+**Configuration:** `Booking:CancellationLimitHours` in `appsettings.json` (default `2`), bound to `BookingOptions` in `Program.cs` and validated at startup.
+
+**Dependencies:** `BookingService` constructor adds `IBookingEvents`, `IOptions<BookingOptions>` and `ILogger<BookingService>`. Test subclasses in `BookingCreateTests` and `ShowingTests` are updated.
+
+**Data:** no migration (`Booking.CancelledAt` exists since US-135). History is kept: `GET api/bookings/mine?scope=history` returns cancelled bookings with the same Reference and TotalPrice.
+
+**Known gaps:** `CancelInternalAsync` still uses `DateTime.UtcNow` for `CancelledAt`; `CancelAsync` overwrites it with the `TimeProvider` value. No test covers a throwing event subscriber.
