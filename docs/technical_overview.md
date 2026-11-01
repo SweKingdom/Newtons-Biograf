@@ -305,3 +305,25 @@ Options are bound and validated on startup in `Program.cs`.
 
 **Tests**
 - `tests/NewtonsBiograf.Tests/ShowingTests.cs`: scenario tests for AC 1–8 on in-memory SQLite, including a daylight-saving case.
+
+## Showing edit, cancel and delete (US-130)
+
+**Endpoints** (all require ManageShowings):
+
+| Route | Results |
+|---|---|
+| `GET /api/showings` | 200 (staff list; query `from`, `to`, optional `auditoriumId`) |
+| `GET /api/showings/{id}` | 200, 404 (`ShowingDto` with `ActiveBookingCount`) |
+| `PUT /api/showings/{id}` | 204, 400, 404, 409 |
+| `POST /api/showings/{id}/cancel` | 204, 404, 500 |
+| `DELETE /api/showings/{id}` | 204, 404, 409 |
+
+**Rules**
+- Edit: 409 if the showing is Cancelled, has started (`StartTime <= UtcNow`) or has any Confirmed booking. Otherwise the slot is validated with `ValidateSlotAsync(request, id)` and MovieId, AuditoriumId, StartTime and EndTime are updated.
+- Delete: 409 if any booking exists for the showing (any status); otherwise removed. Relies on `Booking.ShowingId` FK set to Restrict.
+- Cancel: single transaction in `ShowingService.CancelShowingAsync`. Sets Status to Cancelled, calls `BookingService.CancelInternalAsync` for each Confirmed booking (Status Cancelled, BookingSeats `IsActive`=false). Already cancelled returns 204 without events. Any failure rolls back and returns 500 problem+json.
+- Events: `BookingCancelled` raised per booking after commit through `IBookingEvents`. Default `LoggingBookingEvents` logs only. Subscriber exceptions after commit are logged, not rethrown.
+
+**Error handling:** `AddProblemDetails()` and `UseExceptionHandler()` in `Program.cs` return 500 problem+json for unhandled exceptions.
+
+**Configuration:** none added.
