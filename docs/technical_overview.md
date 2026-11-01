@@ -140,3 +140,38 @@ Blazor client authentication and role-aware UI.
 - Staff-permission menu items are not added yet. Later stories add them with `AuthorizeView` and permission claims.
 - Pages: `/login`, `/register`, `/no-access`, `/admin/staff`.
 - Known gap: no component-level test for the Staff save flow.
+
+## Movie API (US-124)
+
+Base route: `/api/movies`. Implemented in `MoviesController`.
+
+| Method | Route | Auth | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/movies` | Anonymous | 200 list | — |
+| GET | `/api/movies/{id}` | Anonymous | 200 movie | 404 unknown id |
+| POST | `/api/movies` | ManageMovies or Admin | 201 + Location | 400 validation, 401, 403 |
+| PUT | `/api/movies/{id}` | ManageMovies or Admin | 204 | 400 validation, 401, 403, 404 |
+| DELETE | `/api/movies/{id}` | ManageMovies or Admin | 204 | 401, 403, 404, 409 |
+
+**Validation rules**
+
+| Field | Rule |
+|---|---|
+| `Title` | Required, max 200 characters, trimmed |
+| `Genre` | One of `Action`, `Comedy`, `Drama`, `Horror`, `SciFi`, `Animation`, `Documentary`, `Thriller` |
+| `AgeRating` | One of `AllAges`, `Age7`, `Age11`, `Age15` |
+| `LengthMinutes` | Whole number 1–400 |
+| `Description` | Optional, max 2000 characters |
+
+**Enum handling**
+- `StrictEnumConverter` is registered globally. Enums accept names only. Numbers, numeric strings and unknown names fail.
+- Conversion errors keyed by JSON path (for example `$.genre`) are re-keyed to the property name (`Genre`) with the message "{Field} has an invalid value." This is done by an `InvalidModelStateResponseFactory` in `Program.cs`.
+
+**Delete rules**
+- Future showings that are not cancelled: 409 "Movie cannot be deleted because it has future showings."
+- Any other showing (past or cancelled): 409 "Movie cannot be deleted because it has showings." `Showing.MovieId` is Restrict, so there is no cascade.
+- No showings: 204.
+
+**Known gaps**
+- Invalid enum values stop at the first conversion error.
+- PUT with an invalid body and an unknown id returns 400, not 404.
