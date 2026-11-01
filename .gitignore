@@ -1,2 +1,25 @@
 .DS_Store
 node_modules/
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userprefs
+TestResults/
+*.log
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+
+# NuGet
+*.nupkg
+.nuget/
+
+# Secrets
+secrets.json
