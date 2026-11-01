@@ -26,9 +26,10 @@ public sealed record SlotInvalid(Dictionary<string, string[]> Errors) : SlotResu
 /// <summary>The slot overlaps another showing in the auditorium (409).</summary>
 public sealed record SlotConflict(string Detail) : SlotResult;
 
-/// <summary>Slot rules shared by creating and editing a showing.</summary>
+/// <summary>Slot rules shared by creating and editing a showing, and cancelling a showing with its bookings.</summary>
 public class ShowingService(IRepository<Movie> movies, IRepository<Auditorium> auditoriums,
-    IRepository<Showing> showings, IOptions<ShowingOptions> options)
+    IRepository<Showing> showings, IOptions<ShowingOptions> options, AppDbContext db, BookingService bookingService,
+    IBookingEvents events, ILogger<ShowingService> logger)
 {
     /// <summary>
     /// Checks the start (UTC offset given, after now), the movie and auditorium, and overlaps with other non-cancelled
@@ -84,6 +85,53 @@ public class ShowingService(IRepository<Movie> movies, IRepository<Auditorium> a
         }
 
         return new SlotOk(start, end, movie, auditorium!);
+    }
+
+    /// <summary>
+    /// Cancels the showing and every Confirmed booking in one transaction, then raises one BookingCancelled per
+    /// cancelled booking after commit. Returns false when the showing does not exist; an already cancelled showing
+    /// changes nothing. Any failure inside the transaction rolls everything back and is rethrown.
+    /// </summary>
+    public async Task<bool> CancelShowingAsync(int id, CancellationToken ct = default)
+    {
+        List<BookingCancelled> cancelled = [];
+        await using (var tx = await db.Database.BeginTransactionAsync(ct))
+        {
+            var showing = await db.Showings.SingleOrDefaultAsync(s => s.Id == id, ct);
+            if (showing is null)
+            {
+                return false;
+            }
+            if (showing.Status == ShowingStatus.Cancelled)
+            {
+                return true;
+            }
+
+            showing.Status = ShowingStatus.Cancelled;
+            var confirmed = await db.Bookings.Include(b => b.Seats)
+                .Where(b => b.ShowingId == id && b.Status == BookingStatus.Confirmed).ToListAsync(ct);
+            foreach (var booking in confirmed)
+            {
+                await bookingService.CancelInternalAsync(booking, ct);
+                cancelled.Add(new BookingCancelled(booking.Id, booking.Reference, id, booking.UserId));
+            }
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+
+        foreach (var e in cancelled)
+        {
+            try
+            {
+                await events.BookingCancelledAsync(e, ct);
+            }
+            catch (Exception ex)
+            {
+                // The cancellation is already committed; a failing subscriber must not turn it into an error.
+                logger.LogError(ex, "Handling BookingCancelled for booking {BookingId} failed", e.BookingId);
+            }
+        }
+        return true;
     }
 
     private static string Local(DateTime utc, TimeZoneInfo zone) =>

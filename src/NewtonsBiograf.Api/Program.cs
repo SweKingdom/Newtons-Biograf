@@ -39,6 +39,9 @@ builder.Services.AddOptions<ShowingOptions>()
         "Configuration value 'Showings:DisplayTimeZone' is not a known time zone id.")
     .ValidateOnStart();
 builder.Services.AddScoped<ShowingService>();
+builder.Services.AddScoped<BookingService>();
+builder.Services.AddScoped<IBookingEvents, LoggingBookingEvents>();
+builder.Services.AddProblemDetails();
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.User.RequireUniqueEmail = true;
@@ -135,6 +138,9 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod()));
 
 var app = builder.Build();
+
+// Unhandled exceptions become a 500 application/problem+json response (no stack trace for the caller).
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
