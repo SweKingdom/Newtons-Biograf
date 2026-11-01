@@ -533,3 +533,10 @@ Scenario classes (all in `[Collection("Scenarios")]`, so they do not run in para
 | `AccessScenarios` | Other customer's booking (403), unauthenticated (401) |
 
 Known gaps: `ShowingService.ValidateSlotAsync` uses `DateTime.UtcNow`, so showing tests use fixed 2040 dates. No CI pipeline runs these tests yet.
+
+## Test documentation (US-143)
+
+- `docs/TESTING.md` is the reference for the test suite. It covers the test project and helpers (including `FakeClock : TimeProvider`), run commands by class, method and scenario area, one row per test method, and a coverage matrix.
+- Scenario classes: `BookingScenarios`, `CancellationScenarios`, `ShowingOverlapScenarios`, `AccessScenarios`.
+- Known gap: no Seed scenario exists until the seeder is built (US-140).
+- Run the `dotnet test` commands locally. The document records no pass results.
