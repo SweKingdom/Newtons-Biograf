@@ -1,0 +1,95 @@
+@page "/my-bookings"
+@attribute [Authorize(Policy = PolicyNames.CustomerOnly)]
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject BookingApiClient Api
+@inject ShowingApiClient ShowingApi
+
+<PageTitle>My bookings · Newtons Biograf</PageTitle>
+
+<h1>My bookings</h1>
+
+<div class="tab-list" role="tablist" aria-label="Bookings">
+    <button type="button" role="tab" id="tab-upcoming" class="tab" aria-selected="@Selected(BookingScope.Upcoming)"
+            aria-controls="bookings-panel" @onclick="() => SelectAsync(BookingScope.Upcoming)">Upcoming</button>
+    <button type="button" role="tab" id="tab-history" class="tab" aria-selected="@Selected(BookingScope.History)"
+            aria-controls="bookings-panel" @onclick="() => SelectAsync(BookingScope.History)">History</button>
+</div>
+
+<div id="bookings-panel" role="tabpanel" aria-labelledby="@(scope == BookingScope.Upcoming ? "tab-upcoming" : "tab-history")"
+     class="mt-4" aria-live="polite">
+    @if (loading)
+    {
+        <Spinner />
+    }
+    else if (error is not null)
+    {
+        <AlertBox Kind="AlertBox.AlertKind.Error">@error</AlertBox>
+    }
+    else if (bookings.Length == 0)
+    {
+        <p>@(scope == BookingScope.Upcoming ? "You have no upcoming bookings." : "You have no past or cancelled bookings yet.")</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>Reference</th><th>Movie</th><th>Time</th><th>Seats</th><th>Total</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var booking in bookings)
+                {
+                    <tr>
+                        <td>@booking.Reference</td>
+                        <td>@booking.MovieTitle</td>
+                        <td>@DisplayTime.ToZone(booking.Start, zone).ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture)</td>
+                        <td>@BookingText.Seats(booking)</td>
+                        <td>@BookingText.Sek(booking.TotalPrice)</td>
+                        <td>@booking.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private BookingScope scope = BookingScope.Upcoming;
+    private BookingDto[] bookings = [];
+    private TimeZoneInfo zone = TimeZoneInfo.Local;
+    private bool loading = true;
+    private string? error;
+    private int requestId;
+
+    private string Selected(BookingScope tab) => (scope == tab).ToString().ToLowerInvariant();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await ShowingApi.GetSettingsAsync();
+        zone = DisplayTime.Resolve(settings.Settings?.DisplayTimeZone);
+        await LoadAsync();
+    }
+
+    private Task SelectAsync(BookingScope tab)
+    {
+        scope = tab;
+        return LoadAsync();
+    }
+
+    /// <summary>Loads the current tab. Only the newest request counts, so a slow older answer cannot overwrite it.</summary>
+    private async Task LoadAsync()
+    {
+        var id = ++requestId;
+        loading = true;
+        error = null;
+        var result = await Api.GetMineAsync(scope);
+        if (id != requestId)
+        {
+            return;
+        }
+
+        loading = false;
+        bookings = result.Value ?? [];
+        error = result.Error;
+    }
+}

@@ -18,27 +18,68 @@
             for (var number = 1; number <= SeatsPerRow; number++)
             {
                 var n = number;
-                var taken = Taken?.Contains((r, n)) == true;
-                var state = taken ? "seat-taken" : Selected?.Contains((r, n)) == true ? "seat-selected" : "";
-                if (OnSeatClick.HasDelegate)
+                if (Seats is not null)
                 {
-                    <button type="button" class="seat @typeClass @state" disabled="@taken"
-                            aria-label="Row @r seat @n @typeName" @onclick="() => OnSeatClick.InvokeAsync((r, n))">@n</button>
+                    if (!_bySeat.TryGetValue((r, n), out var seat))
+                    {
+                        <span></span>
+                        continue;
+                    }
+
+                    var seatVip = seat.Type == SeatType.VIP;
+                    var chosen = !seat.IsTaken && SelectedIds?.Contains(seat.SeatId) == true;
+                    var status = seat.IsTaken ? "taken" : chosen ? "selected" : "free";
+                    var seatClass = $"seat {(seatVip ? "seat-vip" : "seat-standard")} {(seat.IsTaken ? "seat-taken" : chosen ? "seat-selected" : "")}";
+                    var cue = seat.IsTaken ? "✕" : chosen ? "✓" : seatVip ? "★" : "";
+                    var label = $"Row {r}, seat {n}, {(seatVip ? "VIP" : "Standard")}, {status}";
+                    if (Selectable)
+                    {
+                        <button type="button" class="@seatClass" disabled="@seat.IsTaken" aria-label="@label"
+                                aria-pressed="@(chosen ? "true" : "false")" @onclick="() => OnSeatClick.InvokeAsync((r, n))"><span aria-hidden="true">@($"{n}{cue}")</span></button>
+                    }
+                    else
+                    {
+                        <span class="@seatClass" role="img" aria-label="@label"><span aria-hidden="true">@($"{n}{cue}")</span></span>
+                    }
                 }
                 else
                 {
-                    <span class="seat @typeClass @state">@n</span>
+                    var taken = Taken?.Contains((r, n)) == true;
+                    var state = taken ? "seat-taken" : Selected?.Contains((r, n)) == true ? "seat-selected" : "";
+                    if (OnSeatClick.HasDelegate)
+                    {
+                        <button type="button" class="seat @typeClass @state" disabled="@taken"
+                                aria-label="Row @r seat @n @typeName" @onclick="() => OnSeatClick.InvokeAsync((r, n))">@n</button>
+                    }
+                    else
+                    {
+                        <span class="seat @typeClass @state">@n</span>
+                    }
                 }
             }
         }
     </div>
 </div>
-<ul class="seat-legend">
-    <li><span class="seat seat-standard" aria-hidden="true"></span> Standard</li>
-    <li><span class="seat seat-vip" aria-hidden="true"></span> VIP</li>
-</ul>
+@if (Seats is not null)
+{
+    <ul class="seat-legend">
+        <li><span class="seat seat-standard" aria-hidden="true"></span> Free Standard</li>
+        <li><span class="seat seat-vip" aria-hidden="true">★</span> Free VIP</li>
+        <li><span class="seat seat-standard seat-taken" aria-hidden="true">✕</span> Taken</li>
+        <li><span class="seat seat-standard seat-selected" aria-hidden="true">✓</span> Selected</li>
+    </ul>
+}
+else
+{
+    <ul class="seat-legend">
+        <li><span class="seat seat-standard" aria-hidden="true"></span> Standard</li>
+        <li><span class="seat seat-vip" aria-hidden="true"></span> VIP</li>
+    </ul>
+}
 
 @code {
+    private Dictionary<(int Row, int Number), SeatDto> _bySeat = [];
+
     [Parameter, EditorRequired] public int Rows { get; set; }
     [Parameter, EditorRequired] public int SeatsPerRow { get; set; }
 
@@ -52,4 +93,16 @@
     [Parameter] public IReadOnlySet<(int Row, int Seat)>? Selected { get; set; }
     [Parameter] public IReadOnlySet<(int Row, int Seat)>? Taken { get; set; }
     [Parameter] public EventCallback<(int Row, int Seat)> OnSeatClick { get; set; }
+
+    /// <summary>
+    /// Booking mode: when set, the grid draws these seats (own type, taken, selected) with a four-state legend; every
+    /// state has a text cue as well as a colour. Seats are buttons only when <see cref="Selectable"/> is true.
+    /// <see cref="OnSeatClick"/> then reports (row, seat number) and <see cref="SelectedIds"/> holds the chosen seat ids.
+    /// </summary>
+    [Parameter] public IReadOnlyList<SeatDto>? Seats { get; set; }
+    [Parameter] public bool Selectable { get; set; }
+    [Parameter] public IReadOnlySet<int>? SelectedIds { get; set; }
+
+    protected override void OnParametersSet() =>
+        _bySeat = Seats?.ToDictionary(s => (s.Row, s.Number)) ?? [];
 }

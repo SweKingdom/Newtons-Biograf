@@ -1,0 +1,172 @@
+@page "/showings/{ShowingId:int}/book"
+@attribute [Authorize(Policy = PolicyNames.CustomerOnly)]
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject BookingApiClient Api
+@inject ShowingApiClient ShowingApi
+
+<PageTitle>Book seats · Newtons Biograf</PageTitle>
+
+<p><a href="">&larr; All showings</a></p>
+
+@if (confirmation is not null)
+{
+    <h1>Booking confirmed</h1>
+    <Card Title="@($"Reference {confirmation.Reference}")">
+        <dl>
+            <dt>Movie</dt>
+            <dd>@confirmation.MovieTitle</dd>
+            <dt>Time</dt>
+            <dd>@Time(confirmation.Start)</dd>
+            <dt>Seats</dt>
+            <dd>@BookingText.Seats(confirmation)</dd>
+            <dt>Total</dt>
+            <dd>@BookingText.Sek(confirmation.TotalPrice)</dd>
+        </dl>
+        <p><a href="my-bookings">View my bookings</a></p>
+    </Card>
+}
+else
+{
+    <h1>Choose your seats</h1>
+    @if (loading)
+    {
+        <Spinner />
+    }
+    else if (notFound)
+    {
+        <p role="alert">This showing does not exist. Go back to all showings to see what is on.</p>
+    }
+    else if (loadError is not null)
+    {
+        <AlertBox Kind="AlertBox.AlertKind.Error">@loadError</AlertBox>
+        <AppButton Variant="AppButton.ButtonVariant.Secondary" OnClick="LoadMapAsync">Try again</AppButton>
+    }
+    else if (map is not null)
+    {
+        <div class="stack">
+            <p class="text-muted">Showing starts @Time(map.Start). Times are in @zone.Id. Pick up to @BookingLimits.MaxSeats seats.</p>
+            @if (!map.IsBookable)
+            {
+                <AlertBox Kind="AlertBox.AlertKind.Error">This showing can no longer be booked</AlertBox>
+            }
+            <SeatGrid Rows="rows" SeatsPerRow="seatsPerRow" VipRows="vipRows" Seats="map.Seats"
+                      Selectable="map.IsBookable" SelectedIds="selected" OnSeatClick="Toggle" />
+            @if (map.IsBookable)
+            {
+                <div class="booking-summary" role="status">
+                    <p>
+                        Selected seats: <strong>@selected.Count</strong> of @BookingLimits.MaxSeats ·
+                        Total: <strong>@BookingText.Sek(SeatSelection.Total(map, selected))</strong>
+                    </p>
+                    @if (message is not null)
+                    {
+                        <p class="booking-message">@message</p>
+                    }
+                </div>
+                <AppButton Disabled="@(selected.Count == 0 || submitting)" OnClick="BookAsync">@(submitting ? "Booking…" : "Book")</AppButton>
+            }
+        </div>
+    }
+}
+
+@code {
+    private readonly HashSet<int> selected = [];
+    private SeatMapDto? map;
+    private TimeZoneInfo zone = TimeZoneInfo.Local;
+    private int rows;
+    private int seatsPerRow;
+    private HashSet<int> vipRows = [];
+    private bool loading = true;
+    private bool submitting;
+    private bool notFound;
+    private string? loadError;
+    private string? message;
+    private BookingDto? confirmation;
+
+    [Parameter] public int ShowingId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        confirmation = null;
+        selected.Clear();
+        message = null;
+        var settings = await ShowingApi.GetSettingsAsync();
+        zone = DisplayTime.Resolve(settings.Settings?.DisplayTimeZone);
+        await LoadMapAsync();
+    }
+
+    private async Task LoadMapAsync()
+    {
+        loading = true;
+        notFound = false;
+        loadError = null;
+        map = null;
+        var result = await Api.GetSeatMapAsync(ShowingId);
+        loading = false;
+        notFound = result.NotFound;
+        loadError = result.Error;
+        if (result.Value is { } value)
+        {
+            SetMap(value);
+        }
+    }
+
+    private void SetMap(SeatMapDto value)
+    {
+        map = value;
+        rows = value.Seats.Select(s => s.Row).DefaultIfEmpty().Max();
+        seatsPerRow = value.Seats.Select(s => s.Number).DefaultIfEmpty().Max();
+        vipRows = value.Seats.GroupBy(s => s.Row).Where(g => g.All(s => s.Type == SeatType.VIP)).Select(g => g.Key).ToHashSet();
+    }
+
+    private string Time(DateTime utc) =>
+        DisplayTime.ToZone(utc, zone).ToString("dddd d MMMM yyyy HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>Selects or deselects a free seat; the ninth seat is refused with a message.</summary>
+    private void Toggle((int Row, int Seat) position)
+    {
+        message = null;
+        var seat = map?.Seats.FirstOrDefault(s => s.Row == position.Row && s.Number == position.Seat);
+        if (seat is null || map is not { IsBookable: true } || submitting)
+        {
+            return;
+        }
+        message = SeatSelection.Toggle(selected, seat);
+    }
+
+    /// <summary>Books the selection. On a seat conflict the returned map replaces ours and taken seats leave the selection.</summary>
+    private async Task BookAsync()
+    {
+        if (submitting || selected.Count == 0)
+        {
+            return;
+        }
+
+        submitting = true;
+        message = null;
+        try
+        {
+            var result = await Api.CreateAsync(new CreateBookingRequest(ShowingId, selected.Order().ToList()));
+            if (result.Booking is { } booking)
+            {
+                confirmation = booking;
+                selected.Clear();
+            }
+            else if (result.Conflict is { } conflict)
+            {
+                SetMap(conflict.SeatMap);
+                SeatSelection.KeepFree(selected, conflict.SeatMap);
+                message = conflict.Message;
+            }
+            else
+            {
+                message = result.Error;
+            }
+        }
+        finally
+        {
+            submitting = false;
+        }
+    }
+}

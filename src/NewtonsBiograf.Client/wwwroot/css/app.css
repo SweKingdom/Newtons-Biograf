@@ -11,9 +11,11 @@
     --color-success: #6fcf8e;
     --color-border: #342d25;
 
-    /* Seat types: always paired with a text label, never colour alone */
+    /* Seat states: always paired with a text cue (★ VIP, ✕ taken, ✓ selected), never colour alone */
     --seat-standard: #2f5873;
     --seat-vip: #e0a93b;
+    --seat-taken: #4a443d;
+    --seat-selected: #6fcf8e;
 
     /* Fonts: system / web-safe stacks only, no external fonts */
     --font-body: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
@@ -314,17 +316,24 @@ button.seat-row-label:hover {
     border-color: var(--color-text);
 }
 
-.seat-selected {
+/* Selected: green fill, light border and a ✓ in the label */
+.seat.seat-selected {
+    background: var(--seat-selected);
+    color: var(--color-bg);
     border-color: var(--color-text);
+    font-weight: 700;
 }
 
-.seat-taken {
-    opacity: 0.35;
+/* Taken: grey fill with diagonal stripes and a ✕ in the label */
+.seat.seat-taken {
+    background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(0, 0, 0, 0.45) 4px 8px) var(--seat-taken);
+    color: var(--color-muted);
     cursor: not-allowed;
 }
 
 .seat-legend {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-4);
     margin: var(--space-3) 0 0;
     padding: 0;
@@ -338,8 +347,41 @@ button.seat-row-label:hover {
 }
 
 .seat-legend .seat {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+/* Booking screen */
+.booking-summary {
+    margin-bottom: var(--space-3);
+}
+
+.booking-message {
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
+/* Tabs (two buttons with role="tab") */
+.tab-list {
+    display: flex;
+    gap: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+    padding: var(--space-2) var(--space-4);
+    background: transparent;
+    color: var(--color-muted);
+    border: 0;
+    border-bottom: 3px solid transparent;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
 }
 
 /* Blazor unhandled error banner */

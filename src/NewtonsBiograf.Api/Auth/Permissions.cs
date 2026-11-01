@@ -6,7 +6,7 @@ namespace NewtonsBiograf.Api.Auth;
 public static class Policies
 {
     public const string AdminOnly = "AdminOnly";
-    public const string CustomerOnly = "CustomerOnly";
+    public const string CustomerOnly = PolicyNames.CustomerOnly;
     public const string ManageMovies = Permissions.ManageMovies;
     public const string ManageShowings = Permissions.ManageShowings;
     public const string ManageBookings = Permissions.ManageBookings;
