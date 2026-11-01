@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
+using NewtonsBiograf.Api.Events;
 using NewtonsBiograf.Api.Pricing;
 using NewtonsBiograf.Api.Services;
 using NewtonsBiograf.Shared;
@@ -42,6 +43,8 @@ builder.Services.AddOptions<ShowingOptions>()
 builder.Services.AddScoped<ShowingService>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<IBookingEvents, LoggingBookingEvents>();
+builder.Services.AddSingleton<IBookingEventPublisher, BookingEventPublisher>();
+builder.Services.AddSingleton<BookingLogSubscriber>();
 builder.Services.AddProblemDetails();
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -139,6 +142,9 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod()));
 
 var app = builder.Build();
+
+// Creating the subscriber attaches it to the booking events.
+app.Services.GetRequiredService<BookingLogSubscriber>();
 
 // Unhandled exceptions become a 500 application/problem+json response (no stack trace for the caller).
 app.UseExceptionHandler();

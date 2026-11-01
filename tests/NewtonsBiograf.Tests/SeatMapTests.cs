@@ -101,14 +101,14 @@ public sealed class SeatMapTests : IAsyncLifetime
             return booking.Id;
         });
 
-    private Task CancelBooking(int bookingId) =>
-        WithDb(async db =>
-        {
-            var booking = await db.Bookings.Include(b => b.Seats).SingleAsync(b => b.Id == bookingId);
-            await new BookingService().CancelInternalAsync(booking);
-            await db.SaveChangesAsync();
-            return 0;
-        });
+    private async Task CancelBooking(int bookingId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var booking = await db.Bookings.Include(b => b.Seats).SingleAsync(b => b.Id == bookingId);
+        await scope.ServiceProvider.GetRequiredService<BookingService>().CancelInternalAsync(booking);
+        await db.SaveChangesAsync();
+    }
 
     private async Task<SeatMapDto> GetMap(int showingId)
     {
