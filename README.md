@@ -1,5 +1,7 @@
 # Newtons Biograf
 
+> **Status of this branch.** The seed data story (US-140) is not part of this branch. There is no startup migration, no demo-data seeder, no `Seed:Password` setting and no committed database. Sections 4 and 6 describe exactly what the code does today. When US-140 is merged, this README must be updated with the seed password and the fresh-clone run repeated.
+
 ## 1. Overview
 
 Newtons Biograf is an internal web app plus API for a cinema. Staff manage movies, auditoriums and showings; customers browse showings, book tickets and pick their seats.
@@ -42,7 +44,9 @@ dotnet run --project src/NewtonsBiograf.Client
 
 The client calls the API at `ApiBaseUrl` (`src/NewtonsBiograf.Client/wwwroot/appsettings.json`, `https://localhost:7000/`). The API only accepts the client origin `Cors:ClientOrigin` (`https://localhost:5001`), so use the https client URL.
 
-The API uses the SQLite file named by `ConnectionStrings:Default` (`Data Source=newtonsbiograf.db`, created next to where you start the API). In Development the API applies the migrations and seeds the demo data (section 6) when it starts. To start over, stop the API and delete that file.
+The API uses the SQLite file named by `ConnectionStrings:Default` (`Data Source=newtonsbiograf.db`, a relative path, so the file is created in the folder where the API runs).
+
+**Database on this branch.** The API does **not** create the tables or any data when it starts. The initial migration exists (`src/NewtonsBiograf.Api/Migrations/20261101090000_InitialCreate.cs`) but nothing applies it at startup, and the roles `Admin`, `Staff` and `Customer` are not created either (registration fails with `500` until they exist). The first run of a fresh clone therefore gives an empty, table-less database and you cannot log in. This is resolved by US-140 (startup migration and seeding). To start over, stop the API and delete the database file.
 
 ## 5. Configuration
 
@@ -59,26 +63,25 @@ API settings (`src/NewtonsBiograf.Api/appsettings.json`):
 | `Booking:CancellationLimitHours` | `2` | A customer may cancel until this many hours before the start |
 | `Showings:CleaningMinutes` | `15` | Added to the film length to get a showing's end time |
 | `Showings:DisplayTimeZone` | `Europe/Stockholm` | Time zone used to show times and to filter by date |
-| `Seed:Password` | the demo password in section 6 | Password given to every seeded account (demo only) |
 
 Example: `dotnet user-secrets set "Jwt:Key" "<random string of 32+ characters>" --project src/NewtonsBiograf.Api`
 
 ## 6. Seeded accounts
 
-All accounts share one demo password: `Newtons-Demo-2026` (the value of `Seed:Password`). It is for local demos only; never use it outside a local demo.
+**Not available on this branch.** No accounts are created today (see section 4), and no seed password exists in the code, so none is documented here. The seed data story (US-140) is meant to provide the accounts below; check them against its seeder and fill in the password when it is merged.
 
 | Email | Role | Permissions | Password |
 |---|---|---|---|
-| `admin@newtons.local` | Admin | All (implicit) | `Newtons-Demo-2026` |
-| `staff1@newtons.local` | Staff | `ManageMovies`, `ManageShowings` | `Newtons-Demo-2026` |
-| `staff2@newtons.local` | Staff | `ManageBookings` | `Newtons-Demo-2026` |
-| `customer1@newtons.local` | Customer | none | `Newtons-Demo-2026` |
-| `customer2@newtons.local` | Customer | none | `Newtons-Demo-2026` |
-| `customer3@newtons.local` | Customer | none | `Newtons-Demo-2026` |
+| `admin@newtons.local` | Admin | All (implicit) | to be set by US-140 |
+| `staff1@newtons.local` | Staff | `ManageMovies`, `ManageShowings` | to be set by US-140 |
+| `staff2@newtons.local` | Staff | `ManageBookings` | to be set by US-140 |
+| `customer1@newtons.local` | Customer | none | to be set by US-140 |
+| `customer2@newtons.local` | Customer | none | to be set by US-140 |
+| `customer3@newtons.local` | Customer | none | to be set by US-140 |
 
 ## 7. User scenarios
 
-Log in through **Log in** in the top menu (fields **Email** and **Password**).
+The scenarios describe the screens as they exist in the client. They need the accounts from section 6, so they can only be followed once US-140 is merged. Log in through **Log in** in the top menu (fields **Email** and **Password**).
 
 ### Scenario 1: A customer books seats
 
