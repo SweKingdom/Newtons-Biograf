@@ -148,3 +148,26 @@ Stories US-132 (public API), US-133 (screens).
 - Decision: title filter applied in memory over the ≤14-day set · SQLite LIKE is case-insensitive for ASCII only (å ä ö fail) · alternative: `EF.Functions.Like` (rejected), custom collation (more setup).
 - Client: `Pages/Home.razor`, `Pages/MovieDetail.razor`, `Components/ShowingFilter.razor`, `Services/PublicApiClient.cs`. Book → `/showings/{id}/book`, anonymous redirected to login with `returnUrl`.
 - Risks: needs injectable clock for deterministic tests (Low); login `returnUrl` support must exist (Med); display time zone assumption pending PO answer from FT-110.
+
+## Seat booking (FT-112)
+
+Stories US-134 (seat map), US-135 (create booking), US-136 (my bookings/read), US-137 (UI).
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET /api/showings/{id}/seats` | anonymous | 200 `SeatMapDto {ShowingId, Start, IsBookable, Seats[SeatId,Row,Number,Type,Price,IsTaken]}`, 404 |
+| `POST /api/bookings` | `CustomerOnly` | 201 `BookingDto`, 400, 401, 403, 404, 409 (`SeatConflictDto {Message, SeatMap}` or showing closed) |
+| `GET /api/bookings/mine?scope=upcoming\|history` | `CustomerOnly` | 200, 400 |
+| `GET /api/bookings/{id}` | owner OR `ManageBookings` | 200, 403, 404 |
+| `GET /api/bookings?showingId=&reference=` | `ManageBookings` | 200, 400 |
+
+- Files: `ShowingSeatsController` (separate from the `ManageShowings`-protected `ShowingsController`), `BookingsController`, `Services/BookingService.cs`, `Services/SeatMapBuilder.cs`, `Events/BookingEvents.cs`, `Events/BookingLogSubscriber.cs`, `Shared/Dtos/SeatMapDto.cs`, `BookingDto.cs`.
+- `BookingService` owns create/read and `CancelInternalAsync(Booking, now)`: sets Cancelled and `BookingSeat.IsActive=false`, no own transaction and no events. Callers (showing cancel, booking cancel) commit then raise `BookingCancelled`.
+- Create: validate 1–8 distinct seats of the showing's auditorium; showing must be Scheduled and start in the future; pre-check taken; single `SaveChangesAsync` (atomic); on SQLite error 19 on the seat index, `ChangeTracker.Clear()` and return 409 with a fresh seat map; Reference collision retried up to 5 times. Reference: 8 chars from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, `RandomNumberGenerator`.
+- Events: `delegate BookingEventHandler`, `IBookingEventPublisher` with `BookingCreated`/`BookingCancelled`; raised after commit; subscriber failures are logged and swallowed; one logging subscriber.
+- Upcoming = Confirmed and showing start > now (`IClock`); history = the rest. Non-owner customer gets 403.
+- Client: `Pages/Book.razor`, `Pages/MyBookings.razor`, `Services/BookingApiClient.cs`; seat map reuses and extends `Components/SeatGrid.razor` (no separate SeatMap component). `BookingLimits.MaxSeats=8` in Shared.
+- Decision: cancelled bookings keep BookingSeat rows with `IsActive=false` (no seat snapshot on Booking) · history stays accurate and the filtered unique index frees seats · alternative: delete rows plus snapshot (rejected).
+- Decision: seat map anonymous, in its own controller · map visible to visitors, booking needs login · alternative: authenticated only (rejected, blocks browsing).
+- Decision: 409 body carries the refreshed seat map · one round trip for the client · alternative: client refetches.
+- Risks: concurrency test needs a file-based SQLite DB (Med); `CancelInternalAsync` contract shared with FT-110 and the cancel-booking story; booking by staff on behalf of customers not specified (Customer only assumed); 403 vs 404 for another user's booking follows the story assumption; no client test project (manual UI checks).
