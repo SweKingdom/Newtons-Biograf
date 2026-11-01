@@ -214,3 +214,20 @@ Warning: cancelling a showing cancels its active bookings. This cannot be undone
 2. Confirm the deletion.
 
 If the system refuses the deletion, a red message explains why.
+
+## How to search for a showing
+
+Visitors do not need to log in to see which movies are showing.
+
+1. Open the showings page.
+2. Optionally choose a **Genre** from the dropdown.
+3. Optionally pick a **Date**. Dates outside the next 14 days show no results.
+4. Optionally choose an **Auditorium** from the dropdown.
+5. Optionally type part of a movie title in **Title**. Upper and lower case do not matter, and letters such as Å, Ä and Ö are matched too.
+6. The list shows only showings that start within the next 14 days and are not cancelled. It is sorted by start time.
+7. Each showing shows the number of **Free seats**.
+
+Tips:
+- All filters can be combined. A showing must match every filter you set.
+- If the list is empty, remove a filter or choose another date.
+- A date in the wrong format or an auditorium that is not a valid choice shows an error message. Pick the value again from the dropdown.
