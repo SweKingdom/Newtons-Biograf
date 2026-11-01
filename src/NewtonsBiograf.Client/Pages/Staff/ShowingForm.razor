@@ -1,0 +1,162 @@
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject ShowingApiClient Api
+@inject MovieApiClient MovieApi
+@inject AuditoriumApiClient AuditoriumApi
+
+@if (loading)
+{
+    <Spinner />
+}
+else if (loadProblem is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@loadProblem.General()</AlertBox>
+}
+else
+{
+    @if (problem?.General(Fields) is { } general)
+    {
+        <AlertBox Kind="AlertBox.AlertKind.Error">@general</AlertBox>
+    }
+    <form @onsubmit="SaveAsync" novalidate class="form-narrow">
+        <FormField Label="Movie" Id="showing-movie" Error="@(problem?.Field("MovieId"))">
+            <select id="showing-movie" @bind="movieId">
+                <option value="">Select…</option>
+                @foreach (var movie in movies)
+                {
+                    <option value="@movie.Id">@movie.Title (@movie.LengthMinutes min)</option>
+                }
+            </select>
+        </FormField>
+        <FormField Label="Auditorium" Id="showing-auditorium" Error="@(problem?.Field("AuditoriumId"))">
+            <select id="showing-auditorium" @bind="auditoriumId">
+                <option value="">Select…</option>
+                @foreach (var auditorium in auditoriums)
+                {
+                    <option value="@auditorium.Id">@auditorium.Name</option>
+                }
+            </select>
+        </FormField>
+        <FormField Label="Date" Id="showing-date" Error="@(problem?.Field("StartTime"))">
+            <input id="showing-date" type="date" @bind="date" />
+        </FormField>
+        <FormField Label="Start time" Id="showing-time">
+            <input id="showing-time" type="time" @bind="time" />
+        </FormField>
+        @if (PreviewEnd() is { } end)
+        {
+            <p id="showing-end-preview" class="text-muted">
+                Ends about @end.ToString("ddd d MMM HH:mm", CultureInfo.InvariantCulture)
+                (film length plus @settings!.CleaningMinutes min cleaning).
+            </p>
+        }
+        <AppButton Type="submit" Disabled="saving">Save</AppButton>
+        <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="saving" OnClick="() => OnCancel.InvokeAsync()">Cancel</AppButton>
+    </form>
+}
+
+@code {
+    private static readonly string[] Fields = ["MovieId", "AuditoriumId", "StartTime"];
+
+    /// <summary>The showing to edit; null to schedule a new one. Read once, so the parent gives each opening a new @key.</summary>
+    [Parameter] public ShowingDto? Showing { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private MovieDto[] movies = [];
+    private AuditoriumDto[] auditoriums = [];
+    private ShowingSettingsDto? settings;
+    private bool loading = true;
+    private ApiProblem? loadProblem;
+    private ApiProblem? problem;
+    private bool saving;
+
+    private string movieId = "";
+    private string auditoriumId = "";
+    private DateOnly? date;
+    private TimeOnly? time;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Showing is not null)
+        {
+            movieId = Showing.MovieId.ToString(CultureInfo.InvariantCulture);
+            auditoriumId = Showing.AuditoriumId.ToString(CultureInfo.InvariantCulture);
+            var local = Showing.StartTime.ToLocalTime();
+            date = DateOnly.FromDateTime(local);
+            time = TimeOnly.FromDateTime(local);
+        }
+
+        var movieResult = await MovieApi.GetAllAsync();
+        var auditoriumResult = await AuditoriumApi.ListAsync();
+        var settingsResult = await Api.GetSettingsAsync();
+        loadProblem = new[] { movieResult.Problem, auditoriumResult.Problem, settingsResult.Problem }
+            .FirstOrDefault(p => p is not null);
+        movies = movieResult.Movies ?? [];
+        auditoriums = auditoriumResult.Auditoriums ?? [];
+        settings = settingsResult.Settings;
+        loading = false;
+    }
+
+    /// <summary>Cosmetic preview in local time; the API computes the real end time.</summary>
+    private DateTime? PreviewEnd()
+    {
+        if (settings is null || date is null || time is null || !int.TryParse(movieId, out var id))
+        {
+            return null;
+        }
+        var movie = movies.FirstOrDefault(m => m.Id == id);
+        return movie is null
+            ? null
+            : ShowingTimes.End(ShowingTimes.ToUtc(date.Value, time.Value), movie.LengthMinutes, settings.CleaningMinutes)
+                .ToLocalTime();
+    }
+
+    /// <summary>Only checks that everything was chosen; the API validates the rest and its errors come back as <see cref="problem"/>.</summary>
+    private async Task SaveAsync()
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (!int.TryParse(movieId, out var movie))
+        {
+            errors["MovieId"] = ["Choose a movie."];
+        }
+        if (!int.TryParse(auditoriumId, out var auditorium))
+        {
+            errors["AuditoriumId"] = ["Choose an auditorium."];
+        }
+        if (date is null || time is null)
+        {
+            errors["StartTime"] = ["Choose a start date and time."];
+        }
+        if (errors.Count > 0)
+        {
+            problem = new ApiProblem(null, errors);
+            return;
+        }
+
+        saving = true;
+        problem = null;
+        try
+        {
+            var request = new ShowingRequest
+            {
+                MovieId = movie,
+                AuditoriumId = auditorium,
+                StartTime = ShowingTimes.ToUtc(date!.Value, time!.Value)
+            };
+            var result = Showing is null ? await Api.CreateAsync(request) : await Api.UpdateAsync(Showing.Id, request);
+            if (result.Success)
+            {
+                await OnSaved.InvokeAsync();
+            }
+            else
+            {
+                problem = result.Problem;
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

@@ -33,5 +33,6 @@ builder.Services.AddHttpClient("Api", client => client.BaseAddress = new Uri(api
     .AddHttpMessageHandler<AuthMessageHandler>();
 builder.Services.AddScoped<MovieApiClient>();
 builder.Services.AddScoped<AuditoriumApiClient>();
+builder.Services.AddScoped<ShowingApiClient>();
 
 await builder.Build().RunAsync();

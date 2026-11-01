@@ -327,3 +327,13 @@ Options are bound and validated on startup in `Program.cs`.
 **Error handling:** `AddProblemDetails()` and `UseExceptionHandler()` in `Program.cs` return 500 problem+json for unhandled exceptions.
 
 **Configuration:** none added.
+
+## Showing management screens (US-131)
+
+- **Pages:** `Client/Pages/Staff/Showings.razor` (list, date range default today + 14 days, auditorium filter, status badge, Edit/Cancel/Delete, inline confirmations; `[Authorize(Policy="ManageShowings")]`) and `Client/Pages/Staff/ShowingForm.razor` (create/edit; parameter `ShowingDto?`, `EventCallback OnSaved`).
+- **Client API:** `Client/Services/ShowingApiClient.cs` is a typed `HttpClient` with List, Get, GetSettings, Create, Update, Cancel and Delete. A 400 maps to field errors; a 409 maps to a message. `ShowingTimes` converts between browser-local time and UTC. Registered in `Client/Program.cs`.
+- **Settings endpoint:** `GET /api/showings/settings` (anonymous) in `ShowingsController` returns `ShowingSettingsDto` with `CleaningMinutes` (from `ShowingOptions`, US-129).
+- **Navigation:** the Showings entry in `MainLayout.razor` sits inside `AuthorizeView Policy="ManageShowings"`.
+- **Time handling:** the API and database store UTC. The UI displays and accepts browser-local time and sends ISO UTC with `Z`. The end-time preview is cosmetic; the API is the authority for conflicts.
+- **Tests:** `tests/NewtonsBiograf.Tests/ShowingClientTests.cs`. No UI component tests are configured; screens are verified manually in UAT.
+- **Deployment:** no migrations and no new configuration.

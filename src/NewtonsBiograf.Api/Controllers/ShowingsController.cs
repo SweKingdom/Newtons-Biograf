@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
 using NewtonsBiograf.Api.Services;
@@ -11,9 +12,15 @@ namespace NewtonsBiograf.Api.Controllers;
 [ApiController]
 [Route("api/showings")]
 [Authorize(Policy = Policies.ManageShowings)]
-public class ShowingsController(ShowingService slots, IRepository<Showing> showings, IRepository<Booking> bookings)
+public class ShowingsController(ShowingService slots, IRepository<Showing> showings, IRepository<Booking> bookings,
+    IOptions<ShowingOptions> options)
     : ControllerBase
 {
+    /// <summary>Scheduling settings for the staff form's end-time preview; not secret, so anonymous.</summary>
+    [HttpGet("settings")]
+    [AllowAnonymous]
+    public ShowingSettingsDto Settings() => new(options.Value.CleaningMinutes);
+
     /// <summary>Staff list of showings starting in [from, to), optionally in one auditorium, ordered by start time.</summary>
     [HttpGet]
     public async Task<ActionResult<ShowingDto[]>> List(

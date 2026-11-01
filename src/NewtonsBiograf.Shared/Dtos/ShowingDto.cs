@@ -21,3 +21,6 @@ public record ShowingDto(
     DateTime EndTime,
     ShowingStatus Status,
     int ActiveBookingCount);
+
+/// <summary>Scheduling settings the screens need: minutes added after each film for cleaning.</summary>
+public record ShowingSettingsDto(int CleaningMinutes);
