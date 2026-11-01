@@ -130,3 +130,21 @@ Stories US-129 (create + rules), US-130 (edit, cancel, delete), US-131 (UI).
 - Client: `Pages/Staff/Showings.razor`, `ShowingForm.razor`, `Services/ShowingApiClient.cs`; nav under `AuthorizeView Policy="ManageShowings"`; end-time preview is cosmetic.
 - Decision: overlap check at application level, no DB constraint · SQLite cannot express range exclusion · accept rare race (low-volume internal tool).
 - Risks: concurrent creates may both pass the check (Low/Med); SQLite datetime comparison relies on UTC ISO storage (tested); `BookingService.CancelInternalAsync` contract must match across stories; time zone and edit-with-bookings pending PO answer.
+
+## Public browsing and search (FT-111)
+
+Stories US-132 (public API), US-133 (screens).
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET /api/public/showings?genre&date&auditoriumId&title` | anonymous | 200 `ShowingListItem[]`, 400 |
+| `GET /api/public/genres` | anonymous | 200 `string[]` |
+| `GET /api/public/auditoriums` | anonymous | 200 `[{Id, Name}]` |
+| `GET /api/public/movies/{id}` | anonymous | 200 movie + upcoming showings, 404 |
+
+- One `PublicController` (`[AllowAnonymous]`), queries inline on DbContext, no service. Staff `GET /api/showings` (FT-110) keeps `ManageShowings`.
+- Window: non-cancelled, `now < Start <= now+14d`; filters ANDed; `date` is a local day in `Showings:DisplayTimeZone`; sorted by Start; `FreeSeats = seats − seats in Confirmed bookings`; cap 500 rows, no PII.
+- Decision: separate `/api/public/*` namespace · avoids mixed auth on `/api/showings` and clash with FT-110 · alternative: AllowAnonymous on the staff route (rejected: changes FT-110 contract).
+- Decision: title filter applied in memory over the ≤14-day set · SQLite LIKE is case-insensitive for ASCII only (å ä ö fail) · alternative: `EF.Functions.Like` (rejected), custom collation (more setup).
+- Client: `Pages/Home.razor`, `Pages/MovieDetail.razor`, `Components/ShowingFilter.razor`, `Services/PublicApiClient.cs`. Book → `/showings/{id}/book`, anonymous redirected to login with `returnUrl`.
+- Risks: needs injectable clock for deterministic tests (Low); login `returnUrl` support must exist (Med); display time zone assumption pending PO answer from FT-110.
