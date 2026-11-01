@@ -5,7 +5,13 @@
 1. Introduction
 2. Getting started
 3. Navigating the app
-4. How to register and log in
+- How to register and log in
+- How to create a staff account
+- How to change staff permissions
+- How to manage movies
+- How to manage auditoriums
+- How to set VIP rows and seat prices
+- How to schedule a showing
 
 ## 1. Introduction
 This manual describes how cinema staff use Newtons Biograf to manage movies, auditoriums and showings, and how customers browse, book tickets and choose seats. Chapters are added as features are delivered.
@@ -165,3 +171,22 @@ If the change cannot be saved, the row returns to its previous type and a red me
 - Changing a row to VIP or Standard does not change the price of bookings that already exist.
 - Only Admins can change seat types. Staff and Customer accounts do not see the screens and receive an access error from the system.
 - Price changes are made by the system administrator in the configuration, not in the app.
+
+## How to schedule a showing
+
+You need the **Manage showings** permission to schedule a showing. Times are shown and entered in Swedish time (Europe/Stockholm).
+
+1. Open **Showings** and select **New showing**.
+2. Select the **Movie**.
+3. Select the **Auditorium**.
+4. Enter the **Start time**. It must be in the future.
+5. Select **Save**.
+
+The **End time** is calculated for you: movie length plus a 15-minute cleaning break. You cannot enter it yourself.
+
+**Tips and warnings**
+- A showing that starts exactly when another ends is allowed (back-to-back).
+- The same time in a different auditorium is allowed.
+- If the auditorium is already booked, the message names the clashing showing, for example "Overlaps with 'Dune' 18:00–20:55 in Salong 1". Choose another time or auditorium.
+- Cancelled showings do not block new ones.
+- A start time in the past is rejected. Nothing is saved.
