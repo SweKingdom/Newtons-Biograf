@@ -342,6 +342,51 @@ public sealed class PublicBrowsingTests : IAsyncLifetime
             await auditoriums.Content.ReadFromJsonAsync<AuditoriumOption[]>(Json));
     }
 
+    private Task<int> MovieId(string title) => WithDb(db => db.Movies.Where(m => m.Title == title).Select(m => m.Id).SingleAsync());
+
+    [Fact]
+    public async Task US133_Ac3_Movie_detail_is_anonymous_and_holds_the_movie_with_only_its_own_upcoming_showings()
+    {
+        var later = await Seed("Dune", _salong1, At(3, 12));
+        var earlier = await Seed("Dune", _salong2, At(2, 10));
+        await Seed("Dune", _salong1, At(4, 10), ShowingStatus.Cancelled);
+        await Seed("Dune", _salong1, _now.AddMinutes(-1));
+        await Seed("Dune", _salong1, _now.AddDays(14).AddSeconds(1));
+        await Seed("Nosferatu", _salong1, At(2, 12));
+        await SeedBooking(earlier, BookingStatus.Confirmed, "AAAAAAAA", _seats[0]);
+        var id = await MovieId("Dune");
+
+        var response = await Get($"/api/public/movies/{id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var movie = (await response.Content.ReadFromJsonAsync<MovieDetailDto>(Json))!;
+        Assert.Equal((id, "Dune", null, 175, "Sci-Fi", "11"),
+            (movie.Id, movie.Title, movie.Description, movie.LengthMinutes, movie.Genre, movie.AgeRating));
+        Assert.Equal(new[] { earlier, later }, movie.Showings.Select(s => s.Id).ToArray());
+        Assert.All(movie.Showings, s => Assert.Equal("Dune", s.Movie));
+        Assert.Equal(1, movie.Showings[0].FreeSeats); // Salong 2 has two seats, one is booked
+        Assert.Equal(DateTimeKind.Utc, movie.Showings[0].Start.Kind);
+    }
+
+    [Fact]
+    public async Task US133_Ac3_A_movie_without_upcoming_showings_returns_200_with_an_empty_list()
+    {
+        var id = await MovieId("Nosferatu");
+
+        var response = await Get($"/api/public/movies/{id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty((await response.Content.ReadFromJsonAsync<MovieDetailDto>(Json))!.Showings);
+    }
+
+    [Fact]
+    public async Task US133_Ac3_An_unknown_movie_id_returns_404()
+    {
+        var response = await Get("/api/public/movies/9999");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private async Task SeedFourMovies()
     {
         await Seed("Dune", _salong1, At(2, 12));
