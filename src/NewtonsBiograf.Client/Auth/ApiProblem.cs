@@ -8,12 +8,13 @@ public sealed class ApiProblem
 {
     private const string Fallback = "Something went wrong. Please try again.";
 
-    private readonly string? _title;
+    private readonly string? _message;
     private readonly Dictionary<string, string[]> _errors;
 
-    public ApiProblem(string? title, Dictionary<string, string[]>? errors)
+    /// <param name="message">The problem's detail when it has one, otherwise its title.</param>
+    public ApiProblem(string? message, Dictionary<string, string[]>? errors)
     {
-        _title = title;
+        _message = message;
         _errors = new Dictionary<string, string[]>(errors ?? [], StringComparer.OrdinalIgnoreCase);
     }
 
@@ -22,14 +23,14 @@ public sealed class ApiProblem
 
     public static ApiProblem Unexpected { get; } = new(null, null);
 
-    internal sealed record Body(string? Title, Dictionary<string, string[]>? Errors);
+    internal sealed record Body(string? Title, string? Detail, Dictionary<string, string[]>? Errors);
 
     public static async Task<ApiProblem> ReadAsync(HttpResponseMessage response)
     {
         try
         {
             var body = await response.Content.ReadFromJsonAsync<Body>();
-            return new ApiProblem(body?.Title, body?.Errors);
+            return new ApiProblem(body?.Detail ?? body?.Title, body?.Errors);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException)
         {
@@ -40,7 +41,7 @@ public sealed class ApiProblem
     /// <summary>The error for one form field (case-insensitive match), or null.</summary>
     public string? Field(string name) => _errors.TryGetValue(name, out var messages) ? string.Join(" ", messages) : null;
 
-    /// <summary>Messages not tied to one of the given fields, or the problem title when there are no field errors.</summary>
+    /// <summary>Messages not tied to one of the given fields, or the problem message when there are no field errors.</summary>
     public string? General(params string[] knownFields)
     {
         var other = _errors.Where(e => !knownFields.Contains(e.Key, StringComparer.OrdinalIgnoreCase))
@@ -49,6 +50,6 @@ public sealed class ApiProblem
         {
             return string.Join(" ", other);
         }
-        return _errors.Count == 0 ? _title ?? Fallback : null;
+        return _errors.Count == 0 ? _message ?? Fallback : null;
     }
 }

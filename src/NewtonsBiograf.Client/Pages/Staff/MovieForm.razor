@@ -1,0 +1,80 @@
+<form @onsubmit="SaveAsync" novalidate class="form-narrow">
+    @if (Errors?.General(Fields) is { } general)
+    {
+        <AlertBox Kind="AlertBox.AlertKind.Error">@general</AlertBox>
+    }
+    <FormField Label="Title" Id="movie-title" Error="@(Errors?.Field("Title"))">
+        <input id="movie-title" type="text" maxlength="200" @bind="title" @bind:event="oninput" />
+    </FormField>
+    <FormField Label="Genre" Id="movie-genre" Error="@(Errors?.Field("Genre"))">
+        <select id="movie-genre" @bind="genre">
+            <option value="">Select…</option>
+            @foreach (var value in Enum.GetValues<Genre>())
+            {
+                <option value="@value">@value.ToDisplayName()</option>
+            }
+        </select>
+    </FormField>
+    <FormField Label="Age rating" Id="movie-age-rating" Error="@(Errors?.Field("AgeRating"))">
+        <select id="movie-age-rating" @bind="ageRating">
+            <option value="">Select…</option>
+            @foreach (var value in Enum.GetValues<AgeRating>())
+            {
+                <option value="@value">@value.ToDisplayName()</option>
+            }
+        </select>
+    </FormField>
+    <FormField Label="Length (minutes)" Id="movie-length" Error="@(Errors?.Field("LengthMinutes"))">
+        <input id="movie-length" type="number" min="1" max="400" step="1" @bind="length" @bind:event="oninput" />
+    </FormField>
+    <FormField Label="Description (optional)" Id="movie-description" Error="@(Errors?.Field("Description"))">
+        <textarea id="movie-description" rows="5" maxlength="2000" @bind="description" @bind:event="oninput"></textarea>
+    </FormField>
+    <AppButton Type="submit" Disabled="Saving">Save</AppButton>
+    <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="Saving" OnClick="() => OnCancel.InvokeAsync()">Cancel</AppButton>
+</form>
+
+@code {
+    private static readonly string[] Fields = ["Title", "Genre", "AgeRating", "LengthMinutes", "Description"];
+
+    /// <summary>The movie to edit; null for a new one. Read once, so the parent gives each opening a new @key.</summary>
+    [Parameter] public MovieRequest? Movie { get; set; }
+    [Parameter] public ApiProblem? Errors { get; set; }
+    [Parameter] public bool Saving { get; set; }
+    [Parameter] public EventCallback<MovieRequest> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string title = "";
+    private string genre = "";
+    private string ageRating = "";
+    private int? length;
+    private string? description;
+
+    protected override void OnInitialized()
+    {
+        if (Movie is null)
+        {
+            return;
+        }
+        title = Movie.Title;
+        genre = Movie.Genre?.ToString() ?? "";
+        ageRating = Movie.AgeRating?.ToString() ?? "";
+        length = Movie.LengthMinutes;
+        description = Movie.Description;
+    }
+
+    /// <summary>Sends what was typed as-is; the API validates it and the errors come back through <see cref="Errors"/>.</summary>
+    private Task SaveAsync()
+    {
+        Genre? genreValue = Enum.TryParse<Genre>(genre, out var g) ? g : null;
+        AgeRating? ageRatingValue = Enum.TryParse<AgeRating>(ageRating, out var a) ? a : null;
+        return OnSave.InvokeAsync(new MovieRequest
+        {
+            Title = title,
+            Genre = genreValue,
+            AgeRating = ageRatingValue,
+            LengthMinutes = length ?? 0,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description
+        });
+    }
+}

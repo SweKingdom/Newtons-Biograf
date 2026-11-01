@@ -1,0 +1,213 @@
+@page "/staff/movies"
+@attribute [Authorize(Policy = Permissions.ManageMovies)]
+@using NewtonsBiograf.Client.Services
+@inject MovieApiClient Api
+
+<PageTitle>Movies · Newtons Biograf</PageTitle>
+
+<h1>Movies</h1>
+
+@if (notice is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Success">@notice</AlertBox>
+}
+@if (errorMessage is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@errorMessage</AlertBox>
+}
+
+<div class="stack">
+    @if (formOpen)
+    {
+        <Card Title="@(editing is null ? "Add movie" : $"Edit {editing.Title}")">
+            <MovieForm @key="formKey" Movie="formMovie" Errors="formProblem" Saving="busy"
+                       OnSave="SaveAsync" OnCancel="CloseForm" />
+        </Card>
+    }
+
+    <Card Title="Movies">
+        @if (!formOpen)
+        {
+            <p><AppButton OnClick="StartAdd">Add movie</AppButton></p>
+        }
+        @if (movies is null && errorMessage is null)
+        {
+            <Spinner />
+        }
+        else if (movies is not null && movies.Length == 0)
+        {
+            <p class="text-muted">No movies yet. Add the first one.</p>
+        }
+        else if (movies is not null)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr><th>Title</th><th>Genre</th><th>Age rating</th><th>Length (min)</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var movie in movies)
+                    {
+                        <tr>
+                            <td>@movie.Title</td>
+                            <td>@movie.Genre.ToDisplayName()</td>
+                            <td>@movie.AgeRating.ToDisplayName()</td>
+                            <td>@movie.LengthMinutes</td>
+                            <td>
+                                @if (confirmingId == movie.Id)
+                                {
+                                    <div class="alert alert-error" role="alertdialog" aria-label="Confirm delete">
+                                        <p>Delete “@movie.Title”? This cannot be undone.</p>
+                                        <AppButton Variant="AppButton.ButtonVariant.Danger" Disabled="busy" OnClick="() => DeleteAsync(movie)">Yes, delete</AppButton>
+                                        <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="CancelDelete">Cancel</AppButton>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="() => StartEdit(movie)">Edit</AppButton>
+                                    <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="() => AskDelete(movie)">Delete</AppButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </Card>
+</div>
+
+@code {
+    private MovieDto[]? movies;
+    private string? notice;
+    private string? errorMessage;
+    private bool busy;
+
+    private bool formOpen;
+    private int formKey;
+    private MovieDto? editing;
+    private MovieRequest? formMovie;
+    private ApiProblem? formProblem;
+
+    private int? confirmingId;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    /// <summary>Reloads the list. Only a failure touches the page message, so a message set by the caller survives.</summary>
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAllAsync();
+        if (result.Success)
+        {
+            movies = result.Movies;
+        }
+        else
+        {
+            errorMessage = result.Problem?.General();
+        }
+    }
+
+    private void OpenForm(MovieDto? movie)
+    {
+        editing = movie;
+        formMovie = movie is null
+            ? null
+            : new MovieRequest
+            {
+                Title = movie.Title,
+                Genre = movie.Genre,
+                AgeRating = movie.AgeRating,
+                LengthMinutes = movie.LengthMinutes,
+                Description = movie.Description
+            };
+        formProblem = null;
+        formOpen = true;
+        formKey++;
+        confirmingId = null;
+        notice = null;
+        errorMessage = null;
+    }
+
+    private void StartAdd() => OpenForm(null);
+
+    private void StartEdit(MovieDto movie) => OpenForm(movie);
+
+    private void CloseForm()
+    {
+        formOpen = false;
+        editing = null;
+        formMovie = null;
+        formProblem = null;
+    }
+
+    private async Task SaveAsync(MovieRequest request)
+    {
+        busy = true;
+        formProblem = null;
+        try
+        {
+            var wasNew = editing is null;
+            var result = wasNew ? await Api.CreateAsync(request) : await Api.UpdateAsync(editing!.Id, request);
+            if (result.Success)
+            {
+                CloseForm();
+                notice = wasNew ? $"Movie \"{request.Title.Trim()}\" was added." : $"Movie \"{request.Title.Trim()}\" was saved.";
+                await LoadAsync();
+            }
+            else if (result.NotFound)
+            {
+                CloseForm();
+                await LoadAsync();
+                errorMessage ??= result.Problem?.General();
+            }
+            else
+            {
+                formProblem = result.Problem;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void AskDelete(MovieDto movie)
+    {
+        confirmingId = movie.Id;
+        notice = null;
+        errorMessage = null;
+    }
+
+    private void CancelDelete() => confirmingId = null;
+
+    private async Task DeleteAsync(MovieDto movie)
+    {
+        busy = true;
+        errorMessage = null;
+        try
+        {
+            var result = await Api.DeleteAsync(movie.Id);
+            confirmingId = null;
+            if (result.Success)
+            {
+                if (editing?.Id == movie.Id)
+                {
+                    CloseForm();
+                }
+                notice = $"Movie \"{movie.Title}\" was deleted.";
+                await LoadAsync();
+            }
+            else
+            {
+                var message = result.Problem?.General();
+                if (result.NotFound)
+                {
+                    await LoadAsync();
+                }
+                errorMessage ??= message;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}
