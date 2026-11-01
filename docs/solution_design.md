@@ -182,3 +182,18 @@ Stories US-140 (seed + committed DB), US-141 (xUnit scenarios).
 - Decision: real SQLite, not EF InMemory · filtered unique index must be enforced.
 - Open (non-blocking): showings in the committed DB go stale after 14 days; assumed Development startup tops up missing future days.
 - Risks: parallel test needs file DB (Med); cancel boundary (exactly 2h = allowed) and error codes must match the booking-cancel contract; no checks/CI configured, so tests run locally only.
+
+## Cancellation and booking administration (FT-114)
+
+Stories US-138 (cancel API), US-139 (UI). Note: FT-114's stories cover cancellation; seed data and scenario tests are designed under FT-113 (US-140/141).
+
+| Route | Auth | Result |
+|---|---|---|
+| `POST /api/bookings/{id}/cancel` | `[Authorize]`; owner OR Admin OR `ManageBookings` (checked in `BookingService.CancelAsync`) | 204, 401, 403, 404, 409 |
+
+- Order of checks: 404 → 403 → already cancelled 409 → time rule (owner without privilege only) 409. Privileged callers ignore the 2h rule, also after start.
+- Time: `IClock` (not `TimeProvider`, per existing decision); limit from `Booking:CancellationLimitHours` (default 2) via `BookingOptions`; inclusive boundary (`now <= start − limit`).
+- Cancel = `CancelInternalAsync` (seats `IsActive=false`), set `CancelledAt` (nullable column; migration `AddBookingCancelledAt` if US-135 did not add it), one commit, then `BookingCancelled` raised once.
+- Too-late and already-cancelled both return 409 (story allowed 400/409; one code chosen).
+- Client: `MyBookings.razor` (Cancel, confirm, disabled reason), new `Pages/Staff/Bookings.razor`, `BookingApiClient.CancelAsync/SearchAsync`, `BookingLimits.CancellationLimitHours` in Shared (UI mirror, server authoritative).
+- Risks: client constant can drift from server config (Low); client clock skew only affects button state; staff showing selector may need an endpoint accessible to ManageBookings (assumed free-text fallback); no client tests.
