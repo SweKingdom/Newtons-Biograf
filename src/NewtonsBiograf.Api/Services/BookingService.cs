@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
+using System.Security.Claims;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NewtonsBiograf.Api.Data;
 using NewtonsBiograf.Api.Events;
 using NewtonsBiograf.Api.Pricing;
@@ -29,6 +31,15 @@ public sealed class LoggingBookingEvents(ILogger<LoggingBookingEvents> logger) :
     }
 }
 
+/// <summary>Booking rules bound from the "Booking" configuration section (validated on start).</summary>
+public class BookingOptions
+{
+    public const string Section = "Booking";
+
+    /// <summary>A customer may cancel until this many hours before the showing starts (inclusive).</summary>
+    public int CancellationLimitHours { get; set; } = 2;
+}
+
 public abstract record BookingResult;
 
 /// <summary>The booking was saved (201) or found.</summary>
@@ -49,7 +60,17 @@ public sealed record BookingShowingClosed : BookingResult;
 /// <summary>A seat is already taken (409); carries the current seat map. Nothing was saved.</summary>
 public sealed record BookingConflict(SeatMapDto SeatMap) : BookingResult;
 
-public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvider clock, IBookingEventPublisher publisher)
+/// <summary>The booking was cancelled and its seats freed (204).</summary>
+public sealed record BookingCancelledOk : BookingResult;
+
+/// <summary>The booking is already cancelled (409); nothing was changed.</summary>
+public sealed record BookingAlreadyCancelled : BookingResult;
+
+/// <summary>A customer asked to cancel inside the cancellation limit (409); nothing was changed.</summary>
+public sealed record BookingTooLate(int LimitHours) : BookingResult;
+
+public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvider clock, IBookingEventPublisher publisher,
+    IBookingEvents events, IOptions<BookingOptions> options, ILogger<BookingService> logger)
 {
     public const int MaxSeats = BookingLimits.MaxSeats;
     public const int ReferenceLength = 8;
@@ -225,6 +246,54 @@ public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvid
             seat.IsActive = false;
         }
         return Task.FromResult(booking);
+    }
+
+    /// <summary>
+    /// Cancels a booking for the caller. Order of checks: unknown (404), not the owner and not privileged (403, before
+    /// any state is revealed), already cancelled (409), then the time limit for a customer (409). Admin and staff with
+    /// ManageBookings are privileged: any booking, any time. One save, then <see cref="BookingCancelled"/> after commit;
+    /// a subscriber that throws is logged and never undoes the committed cancellation.
+    /// </summary>
+    public async Task<BookingResult> CancelAsync(int bookingId, ClaimsPrincipal user, CancellationToken ct = default)
+    {
+        var booking = await db.Bookings.Include(b => b.Seats).Include(b => b.Showing)
+            .SingleOrDefaultAsync(b => b.Id == bookingId, ct);
+        if (booking is null)
+        {
+            return new BookingNotFound();
+        }
+
+        var privileged = user.IsInRole(Roles.Admin) || user.HasClaim(Permissions.ClaimType, Permissions.ManageBookings);
+        if (!privileged && user.FindFirst("sub")?.Value != booking.UserId)
+        {
+            return new BookingForbidden();
+        }
+        if (booking.Status == BookingStatus.Cancelled)
+        {
+            return new BookingAlreadyCancelled();
+        }
+
+        var now = clock.GetUtcNow().UtcDateTime;
+        var limit = options.Value.CancellationLimitHours;
+        if (!privileged && now > booking.Showing!.StartTime - TimeSpan.FromHours(limit))
+        {
+            return new BookingTooLate(limit);
+        }
+
+        await CancelInternalAsync(booking, ct);
+        booking.CancelledAt = now;
+        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await events.BookingCancelledAsync(new BookingCancelled(booking.Id, booking.Reference, booking.ShowingId, booking.UserId), ct);
+        }
+        catch (Exception ex)
+        {
+            // The cancellation is already committed; a failing subscriber must not turn it into an error.
+            logger.LogError(ex, "Handling BookingCancelled for booking {BookingId} failed", booking.Id);
+        }
+        return new BookingCancelledOk();
     }
 
     private async Task<BookingResult> ConflictAsync(int showingId, CancellationToken ct)

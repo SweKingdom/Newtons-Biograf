@@ -40,6 +40,10 @@ builder.Services.AddOptions<ShowingOptions>()
     .Validate(o => TimeZoneInfo.TryFindSystemTimeZoneById(o.DisplayTimeZone, out _),
         "Configuration value 'Showings:DisplayTimeZone' is not a known time zone id.")
     .ValidateOnStart();
+builder.Services.AddOptions<BookingOptions>()
+    .BindConfiguration(BookingOptions.Section)
+    .Validate(o => o.CancellationLimitHours >= 0, "Configuration value 'Booking:CancellationLimitHours' must not be negative.")
+    .ValidateOnStart();
 builder.Services.AddScoped<ShowingService>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<IBookingEvents, LoggingBookingEvents>();

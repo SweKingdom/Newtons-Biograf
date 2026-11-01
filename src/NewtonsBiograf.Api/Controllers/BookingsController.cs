@@ -35,6 +35,24 @@ public class BookingsController(BookingService bookings, IAuthorizationService a
         }
     }
 
+    /// <summary>
+    /// Cancels a booking: its owner until the cancellation limit before the showing, staff who may manage bookings
+    /// and Admin at any time. The service decides; this only maps the result.
+    /// </summary>
+    [HttpPost("{id:int}/cancel")]
+    public async Task<IActionResult> Cancel(int id, CancellationToken ct) =>
+        await bookings.CancelAsync(id, User, ct) switch
+        {
+            BookingCancelledOk => NoContent(),
+            BookingForbidden => Forbid(),
+            BookingNotFound => NotFound(),
+            BookingAlreadyCancelled => Problem(detail: "Booking is already cancelled.", statusCode: StatusCodes.Status409Conflict),
+            BookingTooLate late => Problem(
+                detail: $"Bookings can only be cancelled up to {late.LimitHours} hours before the showing starts.",
+                statusCode: StatusCodes.Status409Conflict),
+            _ => throw new InvalidOperationException("Unknown booking result.")
+        };
+
     /// <summary>The calling customer's bookings: scope=upcoming (earliest first) or scope=history (latest first).</summary>
     [HttpGet("mine")]
     [Authorize(Policy = Policies.CustomerOnly)]
