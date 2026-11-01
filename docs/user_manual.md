@@ -174,19 +174,31 @@ If the change cannot be saved, the row returns to its previous type and a red me
 
 ## How to schedule a showing
 
-You need the **Manage showings** permission to schedule a showing. Times are shown and entered in Swedish time (Europe/Stockholm).
+Use this chapter to add a showing to the schedule. Times are entered and shown in Europe/Stockholm time.
 
-1. Open **Showings** and select **New showing**.
-2. Select the **Movie**.
-3. Select the **Auditorium**.
-4. Enter the **Start time**. It must be in the future.
-5. Select **Save**.
+1. Open the showings screen and choose the option to add a new showing.
+2. Select the movie and the auditorium.
+3. Enter the start time. The start time must be in the future.
+4. Save. The end time is calculated from the movie length.
 
-The **End time** is calculated for you: movie length plus a 15-minute cleaning break. You cannot enter it yourself.
+**Tip:** A showing cannot overlap another showing in the same auditorium. If the slot is taken, choose another time or auditorium.
 
-**Tips and warnings**
-- A showing that starts exactly when another ends is allowed (back-to-back).
-- The same time in a different auditorium is allowed.
-- If the auditorium is already booked, the message names the clashing showing, for example "Overlaps with 'Dune' 18:00–20:55 in Salong 1". Choose another time or auditorium.
-- Cancelled showings do not block new ones.
-- A start time in the past is rejected. Nothing is saved.
+### Editing a showing
+1. Open the showing from the showings list.
+2. Change the movie, auditorium or start time, then save.
+
+**Warning:** You can only edit a showing that has no bookings and has not started. If the showing has bookings or has already started, the change is refused. To change it, cancel the showing and create a new one.
+
+### Cancelling a showing
+1. Open the showing and choose the option to cancel it.
+2. Confirm.
+
+**Warning:** Cancelling a showing cancels all of its bookings and frees their seats. Customers are not notified by this app.
+
+### Deleting a showing
+1. Open the showing and choose the option to delete it.
+2. Confirm.
+
+**Note:** You can only delete a showing that has no bookings. If it has any booking, cancel the showing instead.
+
+*Screen labels above are generic; confirm exact button names with the product owner before publishing.*
