@@ -23,6 +23,9 @@
                     <AuthorizeView Policy="@Permissions.ManageShowings">
                         <li><NavLink href="staff/showings" @onclick="CloseNav">Showings</NavLink></li>
                     </AuthorizeView>
+                    <AuthorizeView Policy="@Permissions.ManageBookings">
+                        <li><NavLink href="staff/bookings" @onclick="CloseNav">Bookings</NavLink></li>
+                    </AuthorizeView>
                     <AuthorizeView Roles="@Roles.Admin">
                         <li><NavLink href="admin/auditoriums" @onclick="CloseNav">Auditoriums</NavLink></li>
                         <li><NavLink href="admin/staff" @onclick="CloseNav">Staff</NavLink></li>

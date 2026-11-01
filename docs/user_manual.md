@@ -300,23 +300,30 @@ Use **My bookings** to see the bookings you have made. This page is available to
 
 ## How to cancel a booking
 
-Use this to release the seats of a booking when your plans change.
+You can cancel your own confirmed booking up to 2 hours before the showing starts.
 
-**Customers**
+1. Log in and open **My bookings**.
+2. Find the booking under **Upcoming**. It must have the status **Confirmed**.
+3. Click **Cancel**. A confirmation panel opens below the booking.
+4. To cancel, click **Yes, cancel booking**. To keep the booking, click **Keep booking**. The panel closes and nothing changes.
+5. A success message appears. The booking moves to **History** with the status **Cancelled**.
 
-1. Sign in and open **My bookings**.
-2. Find the booking under **Upcoming** and select it.
-3. Select **Cancel booking**.
-4. Confirm. The booking moves to **History** with the status **Cancelled**. Its seats are free for other customers.
+**Tips and warnings**
+- If the showing starts in less than 2 hours, **Cancel** is greyed out. The message "Bookings can only be cancelled up to 2 hours before the showing starts." is shown. Contact cinema staff for help.
+- If you leave the page open until the 2-hour limit passes and then click **Cancel**, the system shows the reason and reloads the list.
+- Cancelled and past bookings have no **Cancel** button.
 
-Tips and warnings:
-- You can cancel up to **2 hours before the showing starts**. Exactly 2 hours before is still allowed.
-- If it is later than that, the cancel option is refused with the message "Bookings can only be cancelled up to 2 hours before the showing starts." The booking stays Confirmed and the seats stay taken. Contact the cinema for help.
-- You can only cancel your own bookings.
-- No refund is made by this function. Refunds are out of scope for this version.
+## How to manage bookings as staff
 
-**Staff and administrators**
+Staff with the **Manage bookings** permission (and administrators) can find and cancel any customer booking. Open **Bookings** in the navigation menu.
 
-- Staff with the **Manage bookings** permission, and administrators, can cancel any booking at any time, including after the showing has started.
-- Staff without this permission do not see the option and are refused if they try.
-- A booking that is already cancelled cannot be cancelled again. The message "Booking is already cancelled." is shown.
+1. Open **Bookings**. The page opens at `/staff/bookings`.
+2. Enter a **Showing id**, a **Reference**, or both. At least one field is required.
+3. Click **Search**. A spinner shows while the search runs.
+4. Check the results. Each row shows the booking status.
+5. To cancel a **Confirmed** booking, click **Cancel**, then confirm in the panel. The booking shows **Cancelled**. Staff can cancel at any time, including within 2 hours of the showing.
+
+**Tips and warnings**
+- If no booking matches, the page shows "No bookings found".
+- An empty search shows a validation message. Enter a showing id or reference first.
+- If you do not have the permission, the page shows an access-denied message. Ask an administrator to grant **Manage bookings**.

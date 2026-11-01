@@ -4,6 +4,12 @@ namespace NewtonsBiograf.Shared;
 public static class BookingLimits
 {
     public const int MaxSeats = 8;
+
+    /// <summary>
+    /// A customer may cancel until this many hours before the showing starts. Mirrors the server's default
+    /// (<c>Booking:CancellationLimitHours</c>); the screens use it only to disable the button, the server decides.
+    /// </summary>
+    public const int CancellationLimitHours = 2;
 }
 
 /// <summary>Book 1–8 distinct seats of the showing's auditorium.</summary>

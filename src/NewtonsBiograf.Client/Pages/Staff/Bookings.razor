@@ -1,0 +1,190 @@
+@page "/staff/bookings"
+@attribute [Authorize(Policy = Permissions.ManageBookings)]
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject BookingApiClient Api
+@inject ShowingApiClient ShowingApi
+
+<PageTitle>Bookings · Newtons Biograf</PageTitle>
+
+<h1>Bookings</h1>
+
+@if (notice is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Success">@notice</AlertBox>
+}
+@if (actionError is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@actionError</AlertBox>
+}
+
+<Card Title="Find bookings">
+    <form @onsubmit="SearchAsync">
+        <div class="form-narrow">
+            <FormField Label="Showing id" Id="filter-showing" Error="@showingError">
+                <input id="filter-showing" type="text" inputmode="numeric" @bind="showingText" />
+            </FormField>
+            <FormField Label="Booking reference" Id="filter-reference" Error="@filterError">
+                <input id="filter-reference" type="text" maxlength="8" @bind="referenceText" />
+            </FormField>
+        </div>
+        <AppButton Type="submit" Disabled="loading">Search</AppButton>
+    </form>
+
+    <div class="mt-4" aria-live="polite">
+        @if (loading)
+        {
+            <Spinner />
+        }
+        else if (error is not null)
+        {
+            <AlertBox Kind="AlertBox.AlertKind.Error">@error</AlertBox>
+        }
+        else if (bookings is not null && bookings.Length == 0)
+        {
+            <p class="text-muted">No bookings found</p>
+        }
+        else if (bookings is not null)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr><th>Reference</th><th>Movie</th><th>Auditorium</th><th>Time</th><th>Seats</th><th>Total</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var booking in bookings)
+                    {
+                        <tr>
+                            <td>@booking.Reference</td>
+                            <td>@booking.MovieTitle</td>
+                            <td>@booking.Auditorium</td>
+                            <td>@Local(booking.Start)</td>
+                            <td>@BookingText.Seats(booking)</td>
+                            <td>@BookingText.Sek(booking.TotalPrice)</td>
+                            <td>@booking.Status</td>
+                            <td>
+                                @if (confirmingId == booking.Id)
+                                {
+                                    <div class="alert alert-error" role="alertdialog" aria-label="Confirm cancel">
+                                        <p>Cancel booking @booking.Reference for “@booking.MovieTitle” on @Local(booking.Start)? The seats will be released.</p>
+                                        <AppButton Variant="AppButton.ButtonVariant.Danger" Disabled="busy" OnClick="() => CancelAsync(booking)">Yes, cancel booking</AppButton>
+                                        <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="StopConfirming">Keep booking</AppButton>
+                                    </div>
+                                }
+                                else if (booking.Status == BookingStatus.Confirmed)
+                                {
+                                    <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="() => Ask(booking)">Cancel</AppButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</Card>
+
+@code {
+    private BookingDto[]? bookings;
+    private TimeZoneInfo zone = TimeZoneInfo.Local;
+    private string showingText = "";
+    private string referenceText = "";
+    private int? searchedShowing;
+    private string? searchedReference;
+    private bool loading;
+    private bool busy;
+    private string? error;
+    private string? notice;
+    private string? actionError;
+    private string? showingError;
+    private string? filterError;
+    private int? confirmingId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await ShowingApi.GetSettingsAsync();
+        zone = DisplayTime.Resolve(settings.Settings?.DisplayTimeZone);
+    }
+
+    private string Local(DateTime utc) => DisplayTime.ToZone(utc, zone).ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>Validates the filters (the API needs at least one), remembers them for later refreshes and loads the list.</summary>
+    private async Task SearchAsync()
+    {
+        showingError = null;
+        filterError = null;
+        notice = null;
+        actionError = null;
+        confirmingId = null;
+
+        int? showingId = null;
+        if (!string.IsNullOrWhiteSpace(showingText))
+        {
+            if (!int.TryParse(showingText.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed < 1)
+            {
+                showingError = "Showing id must be a positive whole number.";
+                return;
+            }
+            showingId = parsed;
+        }
+
+        var reference = string.IsNullOrWhiteSpace(referenceText) ? null : referenceText.Trim();
+        if (showingId is null && reference is null)
+        {
+            filterError = "Enter a showing id, a booking reference or both.";
+            return;
+        }
+
+        searchedShowing = showingId;
+        searchedReference = reference;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            var result = await Api.SearchAsync(searchedShowing, searchedReference);
+            bookings = result.Value;
+            error = result.Error ?? (result.NotFound ? "Bookings could not be loaded. Please try again." : null);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Ask(BookingDto booking)
+    {
+        confirmingId = booking.Id;
+        notice = null;
+        actionError = null;
+    }
+
+    private void StopConfirming() => confirmingId = null;
+
+    /// <summary>Cancels after the confirm panel (staff may cancel at any time), then refreshes the list with the same filters.</summary>
+    private async Task CancelAsync(BookingDto booking)
+    {
+        busy = true;
+        try
+        {
+            var result = await Api.CancelAsync(booking.Id);
+            confirmingId = null;
+            if (result.Success)
+            {
+                notice = $"Booking {booking.Reference} was cancelled.";
+            }
+            else
+            {
+                actionError = result.Error;
+            }
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}
