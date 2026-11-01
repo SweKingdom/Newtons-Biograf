@@ -31,6 +31,8 @@ builder.Services.AddSingleton<AuthenticationStateProvider>(sp => sp.GetRequiredS
 builder.Services.AddTransient<AuthMessageHandler>();
 builder.Services.AddHttpClient("Api", client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<AuthMessageHandler>();
+// The public browsing endpoints are anonymous, so this client carries no auth handler.
+builder.Services.AddHttpClient<PublicApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddScoped<MovieApiClient>();
 builder.Services.AddScoped<AuditoriumApiClient>();
 builder.Services.AddScoped<ShowingApiClient>();

@@ -1,0 +1,56 @@
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+
+<table class="data-table">
+    <thead>
+        <tr>
+            @if (!OnMoviePage)
+            {
+                <th>Movie</th>
+                <th>Age rating</th>
+            }
+            <th>@(OnMoviePage ? "Date and time" : "Start")</th>
+            <th>Auditorium</th>
+            <th>Free seats</th>
+            <th>Tickets</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var showing in Items)
+        {
+            <tr>
+                @if (!OnMoviePage)
+                {
+                    <td><a href="movies/@showing.MovieId">@showing.Movie</a></td>
+                    <td>@showing.AgeRating</td>
+                }
+                <td>@Start(showing)</td>
+                <td>@showing.Auditorium</td>
+                <td>@(showing.FreeSeats > 0 ? showing.FreeSeats.ToString(CultureInfo.InvariantCulture) : "Sold out")</td>
+                <td><AppButton Disabled="@(showing.FreeSeats <= 0)" OnClick="() => BookAsync(showing)">Book</AppButton></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired] public ShowingListItem[] Items { get; set; } = [];
+
+    /// <summary>The zone the start times are shown in.</summary>
+    [Parameter, EditorRequired] public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Local;
+
+    /// <summary>On a movie's page the movie columns are left out and the start shows the date as well.</summary>
+    [Parameter] public bool OnMoviePage { get; set; }
+
+    private string Start(ShowingListItem showing) =>
+        DisplayTime.ToZone(showing.Start, Zone).ToString(OnMoviePage ? "ddd d MMM HH:mm" : "HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>Signed in: to the seat map. Anonymous: to login, which returns to the seat map afterwards.</summary>
+    private async Task BookAsync(ShowingListItem showing)
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        Nav.NavigateTo(AuthRedirect.BookUrl(showing.Id, state.User.Identity?.IsAuthenticated == true));
+    }
+}

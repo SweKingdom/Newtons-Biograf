@@ -54,10 +54,7 @@ public class PublicController(AppDbContext db, IOptions<ShowingOptions> options,
             return ValidationProblem(ModelState);
         }
 
-        var now = clock.GetUtcNow().UtcDateTime;
-        var last = now.AddDays(WindowDays);
-        var query = db.Showings.AsNoTracking()
-            .Where(s => s.Status != ShowingStatus.Cancelled && s.StartTime > now && s.StartTime <= last);
+        var query = UpcomingShowings();
         if (!string.IsNullOrWhiteSpace(genre))
         {
             var name = genre.Trim();
@@ -81,6 +78,49 @@ public class PublicController(AppDbContext db, IOptions<ShowingOptions> options,
             query = query.Where(s => s.AuditoriumId == auditoriumId);
         }
 
+        return await ToListItemsAsync(query, title, ct);
+    }
+
+    /// <summary>One movie with its upcoming showings (same rules and shape as the public showings list); 404 when unknown.</summary>
+    [HttpGet("movies/{id:int}")]
+    public async Task<ActionResult<MovieDetailDto>> Movie(int id, CancellationToken ct)
+    {
+        var movie = await db.Movies.AsNoTracking().SingleOrDefaultAsync(m => m.Id == id, ct);
+        if (movie is null)
+        {
+            return NotFound();
+        }
+
+        var showings = await ToListItemsAsync(UpcomingShowings().Where(s => s.MovieId == id), null, ct);
+        return new MovieDetailDto(movie.Id, movie.Title, movie.Description, movie.LengthMinutes,
+            movie.Genre.ToDisplayName(), movie.AgeRating.ToDisplayName(), showings);
+    }
+
+    /// <summary>Distinct genres of the movies (display names), sorted; feeds the filter dropdown.</summary>
+    [HttpGet("genres")]
+    public async Task<ActionResult<string[]>> Genres(CancellationToken ct)
+    {
+        var genres = await db.Movies.AsNoTracking().Select(m => m.Genre).Distinct().ToListAsync(ct);
+        return genres.Select(g => g.ToDisplayName()).Order(StringComparer.Ordinal).ToArray();
+    }
+
+    /// <summary>Id and name of every auditorium, sorted by name; feeds the filter dropdown.</summary>
+    [HttpGet("auditoriums")]
+    public async Task<ActionResult<AuditoriumOption[]>> Auditoriums(CancellationToken ct) =>
+        await db.Auditoriums.AsNoTracking().OrderBy(a => a.Name).Select(a => new AuditoriumOption(a.Id, a.Name))
+            .ToArrayAsync(ct);
+
+    /// <summary>Non-cancelled showings starting after now and no later than now + 14 days.</summary>
+    private IQueryable<Showing> UpcomingShowings()
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var last = now.AddDays(WindowDays);
+        return db.Showings.AsNoTracking()
+            .Where(s => s.Status != ShowingStatus.Cancelled && s.StartTime > now && s.StartTime <= last);
+    }
+
+    private async Task<ShowingListItem[]> ToListItemsAsync(IQueryable<Showing> query, string? title, CancellationToken ct)
+    {
         var rows = await query.OrderBy(s => s.StartTime).ThenBy(s => s.Id)
             .Select(s => new
             {
@@ -109,18 +149,4 @@ public class PublicController(AppDbContext db, IOptions<ShowingOptions> options,
                 r.FreeSeats))
             .ToArray();
     }
-
-    /// <summary>Distinct genres of the movies (display names), sorted; feeds the filter dropdown.</summary>
-    [HttpGet("genres")]
-    public async Task<ActionResult<string[]>> Genres(CancellationToken ct)
-    {
-        var genres = await db.Movies.AsNoTracking().Select(m => m.Genre).Distinct().ToListAsync(ct);
-        return genres.Select(g => g.ToDisplayName()).Order(StringComparer.Ordinal).ToArray();
-    }
-
-    /// <summary>Id and name of every auditorium, sorted by name; feeds the filter dropdown.</summary>
-    [HttpGet("auditoriums")]
-    public async Task<ActionResult<AuditoriumOption[]>> Auditoriums(CancellationToken ct) =>
-        await db.Auditoriums.AsNoTracking().OrderBy(a => a.Name).Select(a => new AuditoriumOption(a.Id, a.Name))
-            .ToArrayAsync(ct);
 }

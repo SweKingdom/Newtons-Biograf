@@ -1,36 +1,89 @@
 @page "/"
-@inject IHttpClientFactory HttpClientFactory
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject PublicApiClient Api
+@inject ShowingApiClient ShowingApi
 
 <PageTitle>Newtons Biograf</PageTitle>
 
 <h1>Now showing at Newtons Biograf</h1>
-<p class="text-muted">Movies, showings and seat booking are coming soon.</p>
+<p class="text-muted">Showings in the next 14 days. Times are in @zone.Id. You do not need to log in to browse.</p>
 
-<Card Title="System status">
-    @if (status is null)
+<Card Title="Find a showing">
+    <ShowingFilter Genres="genres" Auditoriums="auditoriums" Today="today" OnChanged="LoadAsync" />
+</Card>
+
+<div class="mt-4" aria-live="polite">
+    @if (loading)
     {
         <Spinner />
     }
+    else if (error is not null)
+    {
+        <AlertBox Kind="AlertBox.AlertKind.Error">@error</AlertBox>
+    }
+    else if (showings.Length == 0)
+    {
+        <p>No showings match your filters</p>
+    }
     else
     {
-        <p>API status: @status</p>
+        <div class="stack">
+            @foreach (var day in DisplayTime.GroupByDay(showings, zone))
+            {
+                <section aria-labelledby="@($"day-{day.Key:yyyyMMdd}")">
+                    <h2 id="@($"day-{day.Key:yyyyMMdd}")">@day.Key.ToString("dddd d MMMM yyyy", CultureInfo.InvariantCulture)</h2>
+                    <ShowingTable Items="day.ToArray()" Zone="zone" />
+                </section>
+            }
+        </div>
     }
-</Card>
+</div>
 
 @code {
-    private string? status;
+    private TimeZoneInfo zone = TimeZoneInfo.Local;
+    private DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+    private string[] genres = [];
+    private AuditoriumOption[] auditoriums = [];
+    private ShowingListItem[] showings = [];
+    private bool loading = true;
+    private string? error;
+    private int requestId;
 
     protected override async Task OnInitializedAsync()
     {
-        try
+        var settings = await ShowingApi.GetSettingsAsync();
+        zone = DisplayTime.Resolve(settings.Settings?.DisplayTimeZone);
+        today = DisplayTime.Today(zone);
+
+        var genresTask = Api.GetGenresAsync();
+        var auditoriumsTask = Api.GetAuditoriumsAsync();
+        var showingsTask = LoadAsync(new ShowingFilterModel());
+        genres = (await genresTask).Value ?? [];
+        auditoriums = (await auditoriumsTask).Value ?? [];
+        await showingsTask;
+    }
+
+    /// <summary>Loads the showings for the filter. Only the newest request counts, so a slow older answer cannot overwrite it.</summary>
+    private async Task LoadAsync(ShowingFilterModel filter)
+    {
+        var id = ++requestId;
+        loading = true;
+        error = null;
+        var result = await Api.GetShowingsAsync(filter);
+        if (id != requestId)
         {
-            var client = HttpClientFactory.CreateClient("Api");
-            var health = await client.GetFromJsonAsync<HealthResponse>("api/health");
-            status = health?.Status ?? "unknown";
+            return;
         }
-        catch (HttpRequestException)
+
+        loading = false;
+        if (result.Success)
         {
-            status = "unreachable";
+            showings = result.Value ?? [];
+        }
+        else
+        {
+            error = result.Error;
         }
     }
 }

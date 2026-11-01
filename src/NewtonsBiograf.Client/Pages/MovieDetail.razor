@@ -1,0 +1,78 @@
+@page "/movies/{Id:int}"
+@using NewtonsBiograf.Client.Services
+@inject PublicApiClient Api
+@inject ShowingApiClient ShowingApi
+
+<PageTitle>@(movie?.Title ?? "Movie") · Newtons Biograf</PageTitle>
+
+<p><a href="">&larr; All showings</a></p>
+
+<div aria-live="polite">
+    @if (loading)
+    {
+        <Spinner />
+    }
+    else if (notFound)
+    {
+        <h1>Movie not found</h1>
+        <p>This movie does not exist. Go back to all showings to see what is on.</p>
+    }
+    else if (error is not null)
+    {
+        <AlertBox Kind="AlertBox.AlertKind.Error">@error</AlertBox>
+    }
+    else if (movie is not null)
+    {
+        <h1>@movie.Title</h1>
+        <div class="stack">
+            <Card>
+                <p>@(string.IsNullOrWhiteSpace(movie.Description) ? "No description available." : movie.Description)</p>
+                <dl>
+                    <dt>Length</dt>
+                    <dd>@movie.LengthMinutes minutes</dd>
+                    <dt>Genre</dt>
+                    <dd>@movie.Genre</dd>
+                    <dt>Age rating</dt>
+                    <dd>@movie.AgeRating</dd>
+                </dl>
+            </Card>
+            <section aria-labelledby="upcoming-heading">
+                <h2 id="upcoming-heading">Upcoming showings</h2>
+                @if (movie.Showings.Length == 0)
+                {
+                    <p>No upcoming showings.</p>
+                }
+                else
+                {
+                    <ShowingTable Items="movie.Showings" Zone="zone" OnMoviePage="true" />
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private MovieDetailDto? movie;
+    private TimeZoneInfo zone = TimeZoneInfo.Local;
+    private bool loading = true;
+    private bool notFound;
+    private string? error;
+
+    [Parameter] public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        notFound = false;
+        error = null;
+        movie = null;
+
+        var settings = await ShowingApi.GetSettingsAsync();
+        zone = DisplayTime.Resolve(settings.Settings?.DisplayTimeZone);
+        var result = await Api.GetMovieAsync(Id);
+        loading = false;
+        notFound = result.NotFound;
+        error = result.Error;
+        movie = result.Value;
+    }
+}
