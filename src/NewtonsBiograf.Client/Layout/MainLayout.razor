@@ -14,6 +14,9 @@
             <nav id="main-nav" class="main-nav @(navOpen ? "open" : "")" aria-label="Main">
                 <ul>
                     <li><NavLink href="" Match="NavLinkMatch.All" @onclick="CloseNav">Home</NavLink></li>
+                    <AuthorizeView Policy="@Permissions.ManageMovies">
+                        <li><NavLink href="staff/movies" @onclick="CloseNav">Movies</NavLink></li>
+                    </AuthorizeView>
                     <AuthorizeView Roles="@Roles.Admin">
                         <li><NavLink href="admin/staff" @onclick="CloseNav">Staff</NavLink></li>
                     </AuthorizeView>

@@ -175,3 +175,21 @@ Base route: `/api/movies`. Implemented in `MoviesController`.
 **Known gaps**
 - Invalid enum values stop at the first conversion error.
 - PUT with an invalid body and an unknown id returns 400, not 404.
+
+## Movie management screens (US-125)
+
+The Blazor client provides a staff screen over the movie API.
+
+| Component | Path | Purpose |
+|---|---|---|
+| Movies page | `Pages/Staff/Movies.razor` | Route `/staff/movies`, `[Authorize(Policy = ManageMovies)]`. List, Add/Edit card, inline delete confirmation. |
+| Movie form | `Pages/Staff/MovieForm.razor` | Parameters `Movie`, `Errors`, `Saving`, `OnSave`, `OnCancel`. Form uses `novalidate` so server messages are shown. |
+| Movie API client | `Services/MovieApiClient.cs` | Typed client returning `MovieResult` (`Success`, `Problem`, `NotFound`, `Movies`). Enums sent by name via `StrictEnumConverterFactory`. |
+| Problem mapping | `Auth/ApiProblem.cs` | Reads ProblemDetails `detail` (preferred) then `title`. `Field()` gives per-field errors, `General()` the message. |
+| Navigation | `Layout/MainLayout.razor` | "Movies" entry inside `AuthorizeView Policy="ManageMovies"`. |
+
+**Error handling.** HTTP 400 maps to field errors shown under each input. HTTP 409 (for example, movie with future showings) maps to a general message shown next to the delete panel; the row is kept. HTTP 404 and 403 and offline states are returned as `MovieResult` values and handled by the page.
+
+**Configuration.** Client permission policies and the `MovieApiClient` registration are set in `Program.cs`. No new settings.
+
+**Tests.** `tests/NewtonsBiograf.Tests/MovieClientTests.cs` covers client mapping. `DesignSystemTests.cs` asserts the US125 structure. There are no bUnit component tests yet (known gap).

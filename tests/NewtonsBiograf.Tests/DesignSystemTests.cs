@@ -117,4 +117,42 @@ public class DesignSystemTests
         Assert.True(File.Exists(Path.Combine(ClientDir, "Pages", "NoAccess.razor")));
         Assert.Contains("@page \"/no-access\"", Read("Pages", "NoAccess.razor"));
     }
+
+    [Fact]
+    public void US125_Ac1_Movies_page_is_guarded_by_ManageMovies_lists_movies_and_the_menu_entry_uses_the_policy()
+    {
+        var page = Read("Pages", "Staff", "Movies.razor");
+
+        Assert.Contains("@page \"/staff/movies\"", page);
+        Assert.Contains("[Authorize(Policy = Permissions.ManageMovies)]", page);
+        Assert.Contains("<MovieForm", page);
+        Assert.Contains("No movies yet. Add the first one.", page);
+        Assert.Contains("ToDisplayName()", page);
+        Assert.Contains("role=\"alertdialog\"", page);
+        Assert.DoesNotContain("window.confirm", page);
+
+        var layout = Read("Layout", "MainLayout.razor");
+        var entry = layout.IndexOf("href=\"staff/movies\"", StringComparison.Ordinal);
+        Assert.True(entry > layout.LastIndexOf("<AuthorizeView Policy=\"@Permissions.ManageMovies\">", entry, StringComparison.Ordinal) &&
+                    layout.LastIndexOf("<AuthorizeView Policy=\"@Permissions.ManageMovies\">", entry, StringComparison.Ordinal) >= 0);
+
+        var program = Read("Program.cs");
+        Assert.Contains("foreach (var permission in Permissions.All)", program);
+        Assert.Contains("AddScoped<MovieApiClient>", program);
+    }
+
+    [Fact]
+    public void US125_Ac1_Movie_form_has_the_five_fields_with_full_dropdowns_and_html_limits()
+    {
+        var form = Read("Pages", "Staff", "MovieForm.razor");
+
+        Assert.Contains("Enum.GetValues<Genre>()", form);
+        Assert.Contains("Enum.GetValues<AgeRating>()", form);
+        Assert.Equal(2, Regex.Matches(form, "<option value=\"\">Select…</option>").Count);
+        Assert.Contains("id=\"movie-title\" type=\"text\" maxlength=\"200\"", form);
+        Assert.Contains("type=\"number\" min=\"1\" max=\"400\" step=\"1\"", form);
+        Assert.Contains("<textarea id=\"movie-description\" rows=\"5\" maxlength=\"2000\"", form);
+        foreach (var field in new[] { "Title", "Genre", "AgeRating", "LengthMinutes", "Description" })
+            Assert.Contains($"Errors?.Field(\"{field}\")", form);
+    }
 }
