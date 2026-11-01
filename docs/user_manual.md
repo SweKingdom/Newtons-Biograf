@@ -5,13 +5,18 @@
 1. Introduction
 2. Getting started
 3. Navigating the app
-- How to register and log in
-- How to create a staff account
-- How to change staff permissions
-- How to manage movies
-- How to manage auditoriums
-- How to set VIP rows and seat prices
-- How to schedule a showing
+4. How to register and log in
+5. How to create a staff account
+6. How to change staff permissions
+7. How to manage movies
+8. How to manage auditoriums
+9. How to set VIP rows and seat prices
+10. How to schedule a showing
+11. How to search for a showing
+12. How to browse showings and movies
+13. How to book a showing as a visitor
+14. How to choose seats
+15. How to view my bookings
 
 ## 1. Introduction
 This manual describes how cinema staff use Newtons Biograf to manage movies, auditoriums and showings, and how customers browse, book tickets and choose seats. Chapters are added as features are delivered.
@@ -257,14 +262,38 @@ You do not need an account to browse. Open the home page to see what is on.
 
 ## How to choose seats
 
-Anyone can view the seat map of a showing without logging in. Booking a seat still requires login.
+Use the seat map to pick the seats for your booking. You must be logged in as a customer.
 
-1. Open the showing you want to see.
-2. The seat map shows every seat of the auditorium, in row and seat-number order.
-3. Each seat shows its type (**Standard** or **VIP**) and its price in SEK.
-4. Seats marked as taken are already booked for this showing. Free seats can be chosen for booking.
-5. A seat you have cancelled becomes free again on the next refresh.
+1. Open a showing and select **Book**. The seat map opens at the showing's booking page.
+2. Read the **Legend** at the top of the map:
+   - **Free Standard**: available seat, standard price.
+   - **Free VIP** (marked ★): available VIP seat, higher price.
+   - **Taken** (marked ✕): already booked. You cannot select it.
+   - **Selected** (marked ✓): a seat you have picked.
+3. Select a free seat to add it to your selection. Select it again to remove it. You can also use the Tab key to move between seats and Enter or Space to select one.
+4. Repeat for each seat you want. You can select at most **8 seats** per booking. If you try to select a 9th seat, the message "You can select at most 8 seats." is shown.
+5. Check the **selected seat count** and the **total in SEK** below the map. The total updates each time you select or remove a seat.
+6. Select **Book** to confirm. The Book button is unavailable when no seat is selected, and while your booking is being sent.
+7. When the booking succeeds, a confirmation shows your **reference**, the **movie**, the **time**, your **seats** and the **total price**. Select **My bookings** to see it later.
 
-Tips and warnings:
-- If a showing has already started, the seat map is still visible, but booking is closed for that showing.
-- The map does not update automatically. Refresh the page to see the latest seat status.
+**Tips and warnings**
+- The total shown is for information. The final price is calculated when you book.
+- If the message "One or more seats are no longer available" appears, another customer booked one or more of your seats first. The map is refreshed, the taken seats are removed from your selection, and your other seats stay selected. Check the selection and select **Book** again.
+- If the message "This showing can no longer be booked" appears, the showing is closed for booking. No seats can be selected.
+- If the message "Showing not found" appears, the link may be out of date. Go back and choose the showing again.
+- If you are not logged in, you are sent to the login page and returned to the seat map after logging in.
+
+## How to view my bookings
+
+Use **My bookings** to see the bookings you have made. This page is available to customers only.
+
+1. Select **My bookings** in the menu. This link appears when you are logged in as a customer.
+2. Select the **Upcoming** tab to see bookings for showings that have not started yet.
+3. Select the **History** tab to see bookings for showings that have already taken place.
+4. For each booking, check the **reference**, **movie**, **time**, **seats**, **total** and **status**.
+5. Switching tabs loads the list for that tab.
+
+**Tips and warnings**
+- If a tab shows "You have no bookings" (or similar empty text), you have no bookings in that list yet.
+- If the list cannot be loaded, an error message is shown. Refresh the page and try again.
+- Staff accounts cannot open My bookings. Anonymous visitors are sent to the login page.
