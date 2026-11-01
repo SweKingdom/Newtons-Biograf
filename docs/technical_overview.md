@@ -73,3 +73,13 @@ Bearer validation for protected routes is not yet enabled (US-120).
 - **Build and test scripts:** `package.json` exposes `typecheck`, `test` and `build`, which wrap `dotnet build` and `dotnet test`. No lint script.
 - **Tests:** `tests/NewtonsBiograf.Tests/DesignSystemTests.cs` checks the CSS and Razor source; components are not rendered.
 - **Known gaps:** FormField error is not linked via `aria-describedby`; Home.razor handles only `HttpRequestException`; visual review at 375px and desktop is pending.
+
+## Authorization policies (US-120)
+
+- **Authentication:** JWT bearer, `MapInboundClaims=false`. Validation parameters come from `IOptions<JwtOptions>`; the signing key is validated on start.
+- **Role claim:** `role` (`TokenService.RoleClaimType`).
+- **Permission claim:** type `permission` (`Permissions.ClaimType`). Values: `ManageMovies`, `ManageShowings`, `ManageBookings`.
+- **Roles:** `Admin`, `Staff`, `Customer`.
+- **Policies:** `AdminOnly`, `CustomerOnly`, `ManageMovies`, `ManageShowings`, `ManageBookings`, registered by `AddAppPolicies`. Admin passes all permission policies; Staff needs the specific claim.
+- **Errors:** 401 when unauthenticated; 403 when authenticated without role or permission. Both return `application/problem+json`; `OnChallenge` and `OnForbidden` prevent redirects.
+- **Location:** `Api/Auth/Permissions.cs`; the client needs a shared copy later.

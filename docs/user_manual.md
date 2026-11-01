@@ -32,24 +32,4 @@ Tip: The **Menu** button tells screen readers whether the menu is open or closed
 
 ## How to register and log in
 
-Customers need an account to book tickets and choose seats.
-
-**Create an account**
-1. Open the registration form.
-2. Enter your **Name**, **Email** and **Password**.
-3. Choose **Register**.
-4. When the account is created, log in with your email and password.
-
-Tips:
-- The password must be at least 8 characters.
-- Each email address can be used for one account only. If you see an error under **Email**, log in instead, or use a different address.
-- Every new account is a customer account. You cannot choose a role during registration.
-
-**Log in**
-1. Open the login form.
-2. Enter your **Email** and **Password**.
-3. Choose **Log in**.
-
-Warning: if you see "Invalid email or password.", check the email and password and try again. The message is the same for both cases on purpose.
-
-Your session stays active for 60 minutes after you log in. After that, log in again.
+No change in this story. Note: if you call a protected page or function without being logged in, you will be asked to log in again. If your account does not have the access needed for an action, the action is refused with a "Forbidden" message.
