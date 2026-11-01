@@ -106,3 +106,29 @@ Use the Movies screen to keep the movie programme up to date. You need the **Man
 - If a field is invalid, a message appears under that field. Correct it and save again. Nothing is saved until all errors are fixed.
 - You cannot delete a movie that has future showings. The screen shows the reason (for example, "Movie cannot be deleted because it has future showings."), and the movie stays in the list.
 - If you do not see the Movies menu entry, ask an administrator to check your staff permissions.
+
+## How to manage auditoriums
+
+Admins create and edit auditoriums. All staff and customers can view them.
+
+**Create an auditorium**
+1. Sign in as an admin.
+2. Open the auditorium list and choose the option to add a new auditorium.
+3. Enter a **Name**. The name must be unique and may be up to 100 characters. Names are not case-sensitive, so "Salon 1" and "salon 1" count as the same name.
+4. Enter **Rows** (1 to 26).
+5. Enter **Seats per row** (1 to 40).
+6. Save. The **Capacity** is calculated automatically as Rows × Seats per row. All seats are created as standard seats.
+
+**Edit an auditorium**
+1. Sign in as an admin and open the auditorium.
+2. Change the **Name**, the **Rows** or the **Seats per row**.
+3. Save.
+
+Tips and warnings:
+- Changing only the name is always allowed.
+- Changing **Rows** or **Seats per row** is blocked when the auditorium has future showings with bookings, or when a seat that would be removed has already been booked. The message "Layout cannot be changed because the auditorium has bookings." is shown and nothing is changed.
+- When you add rows or seats, existing seats keep their position. New seats in an existing row take that row's seat type. New rows are standard.
+- If a name is already in use, the save fails and the **Name** field shows an error.
+
+**View auditoriums**
+- The auditorium list and each auditorium's details show Name, Rows, Seats per row, Capacity and VIP rows. Anyone can view them, without signing in.
