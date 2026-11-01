@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\NewtonsBiograf.Api\NewtonsBiograf.Api.csproj" />
     <ProjectReference Include="..\..\src\NewtonsBiograf.Shared\NewtonsBiograf.Shared.csproj" />
   </ItemGroup>
