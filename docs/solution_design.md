@@ -71,3 +71,20 @@ None external.
 | Filtered index provider support | Low | High | Covered by a test with real SQLite |
 | No checks/CI configured | High | Med | `dotnet build`/`dotnet test` run manually; CI out of scope |
 | Committed SQLite file conflicts with migrations | Med | Med | Regenerate seed DB after each migration change |
+
+## Movie management (FT-108)
+
+Stories US-124 (API) and US-125 (UI).
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET /api/movies`, `GET /api/movies/{id}` | anonymous | 200, 404 |
+| `POST /api/movies` | policy `ManageMovies` | 201, 400, 401, 403 |
+| `PUT /api/movies/{id}` | policy `ManageMovies` | 204, 400, 404 |
+| `DELETE /api/movies/{id}` | policy `ManageMovies` | 204, 404, 409 |
+
+- `MoviesController` uses `IRepository<Movie>` directly; no `MovieService`. One `MovieRequest` for POST and PUT. DTOs in `Shared`.
+- Delete is blocked (409) when the movie has a non-cancelled showing with `StartTime > UtcNow`. Cascade delete of showings is NOT used. The `Showing.MovieId` FK behaviour (US-117) must be confirmed: with `Restrict`, a movie that has only past or cancelled showings cannot be deleted, so the API returns 409 "Movie cannot be deleted because it has showings.".
+- Enums are sent as strings (wire names), shown via display names ("Sci-Fi", "All ages").
+- Client: `Pages/Staff/Movies.razor`, `MovieForm.razor`, `Services/MovieApiClient.cs`. It maps `ValidationProblemDetails` errors onto `FormField`s, and shows the 409 message in an AlertBox. The nav entry is under `AuthorizeView Policy="ManageMovies"`.
+- Risk: the FK/delete rule for past showings is not in the requirements. Treat it as an assumption until confirmed by the product owner.
