@@ -1,0 +1,25 @@
+@page "/"
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>Newtons Biograf</PageTitle>
+
+<h1>Newtons Biograf</h1>
+<p>API status: @status</p>
+
+@code {
+    private string status = "checking...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            var health = await client.GetFromJsonAsync<HealthResponse>("api/health");
+            status = health?.Status ?? "unknown";
+        }
+        catch (HttpRequestException)
+        {
+            status = "unreachable";
+        }
+    }
+}
