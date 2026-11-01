@@ -223,3 +223,30 @@ The Blazor client provides a staff screen over the movie API.
 **Open points**
 - The anonymous GET currently returns Rows, SeatsPerRow and VipRows. The PO answer mentions only Id, Name and Capacity. To be confirmed.
 - The 409 message is fixed and does not name the affected showings, as the AC specifies. To be confirmed.
+
+## Pricing and row seat types (US-127)
+
+**Endpoints**
+
+| Method | Route | Access | Notes |
+|---|---|---|---|
+| PUT | `/api/auditoriums/{id}/rows/{row}/type` | Admin | Body `{"Type":"Standard"｜"VIP"}`. 204 on success (idempotent). 404 unknown auditorium or row outside 1..Rows. 400 invalid or missing Type. 401 no token. 403 non-Admin. |
+| GET | `/api/pricing` | Anonymous | Returns `{StandardSeat, VipSeat}` (SEK). |
+
+**Configuration**
+
+| Key | Default | Rule |
+|---|---|---|
+| `Pricing:StandardSeat` | 140 | Must be greater than 0 |
+| `Pricing:VipSeat` | 200 | Must be greater than 0 |
+
+Defaults live only in `appsettings.json`. The application fails at startup if a key is missing or not greater than 0.
+
+**Components**
+- `PricingOptions` (bound and validated on start in `Program.cs`).
+- `IPriceCalculator` / `PriceCalculator`: singleton; reads values through `IOptionsMonitor`, so changes are picked up without code changes. `GetPrice(SeatType)` returns the price for a seat type.
+- `RowTypeRequest`: nullable `Type` with `[Required]` and `[EnumDataType]`.
+
+**Rules**
+- Row type applies to all seats in a row; no per-seat override.
+- Booking prices are snapshots taken through `IPriceCalculator` at booking time. Later price or row type changes do not alter existing bookings.
