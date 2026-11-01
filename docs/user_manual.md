@@ -254,3 +254,17 @@ You do not need an account to browse. Open the home page to see what is on.
 2. If you are logged in, the seat selection page opens.
 3. If you are not logged in, the login page opens. After you log in, you are returned to the booking page for that showing.
 4. A showing with no free seats shows **Sold out**. The **Book** button is disabled.
+
+## How to choose seats
+
+Anyone can view the seat map of a showing without logging in. Booking a seat still requires login.
+
+1. Open the showing you want to see.
+2. The seat map shows every seat of the auditorium, in row and seat-number order.
+3. Each seat shows its type (**Standard** or **VIP**) and its price in SEK.
+4. Seats marked as taken are already booked for this showing. Free seats can be chosen for booking.
+5. A seat you have cancelled becomes free again on the next refresh.
+
+Tips and warnings:
+- If a showing has already started, the seat map is still visible, but booking is closed for that showing.
+- The map does not update automatically. Refresh the page to see the latest seat status.
