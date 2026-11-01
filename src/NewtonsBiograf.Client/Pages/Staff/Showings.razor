@@ -1,0 +1,269 @@
+@page "/staff/showings"
+@attribute [Authorize(Policy = Permissions.ManageShowings)]
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@inject ShowingApiClient Api
+@inject AuditoriumApiClient AuditoriumApi
+
+<PageTitle>Showings · Newtons Biograf</PageTitle>
+
+<h1>Showings</h1>
+
+@if (notice is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Success">@notice</AlertBox>
+}
+@if (errorMessage is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@errorMessage</AlertBox>
+}
+
+<div class="stack">
+    @if (formOpen)
+    {
+        <Card Title="@(editing is null ? "Schedule showing" : $"Edit {editing.MovieTitle}")">
+            <ShowingForm @key="formKey" Showing="editing" OnSaved="SavedAsync" OnCancel="CloseForm" />
+        </Card>
+    }
+
+    <Card Title="Showings">
+        @if (!formOpen)
+        {
+            <p><AppButton OnClick="StartAdd">Schedule showing</AppButton></p>
+        }
+        <div class="form-narrow">
+            <FormField Label="From" Id="filter-from">
+                <input id="filter-from" type="date" @bind="fromDate" @bind:after="LoadAsync" />
+            </FormField>
+            <FormField Label="To (inclusive)" Id="filter-to">
+                <input id="filter-to" type="date" @bind="toDate" @bind:after="LoadAsync" />
+            </FormField>
+            <FormField Label="Auditorium" Id="filter-auditorium">
+                <select id="filter-auditorium" @bind="auditoriumFilter" @bind:after="LoadAsync">
+                    <option value="">All auditoriums</option>
+                    @foreach (var auditorium in auditoriums)
+                    {
+                        <option value="@auditorium.Id">@auditorium.Name</option>
+                    }
+                </select>
+            </FormField>
+        </div>
+        @if (loading)
+        {
+            <Spinner />
+        }
+        else if (showings is not null && showings.Length == 0)
+        {
+            <p class="text-muted">No showings in this period. Schedule the first one.</p>
+        }
+        else if (showings is not null)
+        {
+            <table class="data-table">
+                <thead>
+                    <tr><th>Movie</th><th>Auditorium</th><th>Start</th><th>End</th><th>Status</th><th>Active bookings</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var showing in showings)
+                    {
+                        var editBlocked = EditBlockedReason(showing);
+                        <tr>
+                            <td>@showing.MovieTitle</td>
+                            <td>@showing.AuditoriumName</td>
+                            <td>@Local(showing.StartTime)</td>
+                            <td>@Local(showing.EndTime)</td>
+                            <td><span class="status-badge status-@showing.Status.ToString().ToLowerInvariant()">@showing.Status</span></td>
+                            <td>@showing.ActiveBookingCount</td>
+                            <td>
+                                @if (confirmingId == showing.Id)
+                                {
+                                    <div class="alert alert-error" role="alertdialog" aria-label="@(confirmingDelete ? "Confirm delete" : "Confirm cancel")">
+                                        @if (confirmingDelete)
+                                        {
+                                            <p>Delete the showing of “@showing.MovieTitle” on @Local(showing.StartTime)? This cannot be undone.</p>
+                                            <AppButton Variant="AppButton.ButtonVariant.Danger" Disabled="busy" OnClick="() => DeleteAsync(showing)">Yes, delete</AppButton>
+                                            <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="StopConfirming">Keep showing</AppButton>
+                                        }
+                                        else
+                                        {
+                                            <p>Cancel the showing of “@showing.MovieTitle” on @Local(showing.StartTime)? @BookingText(showing.ActiveBookingCount)</p>
+                                            <AppButton Variant="AppButton.ButtonVariant.Danger" Disabled="busy" OnClick="() => CancelAsync(showing)">Yes, cancel showing</AppButton>
+                                            <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="StopConfirming">Keep showing</AppButton>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span title="@editBlocked">
+                                        <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy || editBlocked is not null" OnClick="() => StartEdit(showing)">Edit</AppButton>
+                                    </span>
+                                    @if (showing.Status == ShowingStatus.Scheduled)
+                                    {
+                                        <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="() => AskCancel(showing)">Cancel</AppButton>
+                                    }
+                                    @if (showing.ActiveBookingCount == 0)
+                                    {
+                                        <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="() => AskDelete(showing)">Delete</AppButton>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </Card>
+</div>
+
+@code {
+    private ShowingDto[]? showings;
+    private AuditoriumDto[] auditoriums = [];
+    private DateOnly? fromDate = DateOnly.FromDateTime(DateTime.Now);
+    private DateOnly? toDate = DateOnly.FromDateTime(DateTime.Now).AddDays(14);
+    private string auditoriumFilter = "";
+    private bool loading = true;
+    private string? notice;
+    private string? errorMessage;
+    private bool busy;
+
+    private bool formOpen;
+    private int formKey;
+    private ShowingDto? editing;
+
+    private int? confirmingId;
+    private bool confirmingDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await AuditoriumApi.ListAsync();
+        auditoriums = result.Auditoriums ?? [];
+        await LoadAsync();
+        errorMessage ??= result.Problem?.General();
+    }
+
+    /// <summary>Reloads the list for the chosen period. Only a failure touches the page message, so a message set by the caller survives.</summary>
+    private async Task LoadAsync()
+    {
+        if (fromDate is null || toDate is null || toDate < fromDate)
+        {
+            errorMessage = "Choose a start date and an end date that is not before it.";
+            loading = false;
+            return;
+        }
+
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            var result = await Api.ListAsync(
+                ShowingTimes.ToUtc(fromDate.Value, TimeOnly.MinValue),
+                ShowingTimes.ToUtc(toDate.Value.AddDays(1), TimeOnly.MinValue),
+                int.TryParse(auditoriumFilter, out var auditoriumId) ? auditoriumId : null);
+            if (result.Success)
+            {
+                showings = result.Showings;
+            }
+            else
+            {
+                errorMessage = result.Problem?.General();
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string Local(DateTime utc) =>
+        utc.ToLocalTime().ToString("ddd d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+
+    private static string BookingText(int count) => count switch
+    {
+        0 => "It has no active bookings.",
+        1 => "1 active booking will be cancelled.",
+        _ => $"{count} active bookings will be cancelled."
+    };
+
+    /// <summary>Why the showing cannot be edited (shown as a tooltip), or null when it can.</summary>
+    private static string? EditBlockedReason(ShowingDto showing) =>
+        showing.Status == ShowingStatus.Cancelled ? "A cancelled showing cannot be edited."
+        : showing.ActiveBookingCount > 0 ? "A showing with bookings cannot be edited. Cancel it and schedule a new one."
+        : showing.StartTime <= DateTime.UtcNow ? "A showing that has started cannot be edited."
+        : null;
+
+    private void OpenForm(ShowingDto? showing)
+    {
+        editing = showing;
+        formOpen = true;
+        formKey++;
+        confirmingId = null;
+        notice = null;
+        errorMessage = null;
+    }
+
+    private void StartAdd() => OpenForm(null);
+
+    private void StartEdit(ShowingDto showing) => OpenForm(showing);
+
+    private void CloseForm()
+    {
+        formOpen = false;
+        editing = null;
+    }
+
+    private async Task SavedAsync()
+    {
+        notice = editing is null ? "Showing was scheduled." : "Showing was saved.";
+        CloseForm();
+        await LoadAsync();
+    }
+
+    private void AskCancel(ShowingDto showing) => Ask(showing, false);
+
+    private void AskDelete(ShowingDto showing) => Ask(showing, true);
+
+    private void Ask(ShowingDto showing, bool delete)
+    {
+        confirmingId = showing.Id;
+        confirmingDelete = delete;
+        notice = null;
+        errorMessage = null;
+    }
+
+    private void StopConfirming() => confirmingId = null;
+
+    private Task CancelAsync(ShowingDto showing) =>
+        RunAsync(() => Api.CancelAsync(showing.Id), $"Showing of \"{showing.MovieTitle}\" was cancelled.");
+
+    private Task DeleteAsync(ShowingDto showing) =>
+        RunAsync(() => Api.DeleteAsync(showing.Id), $"Showing of \"{showing.MovieTitle}\" was deleted.");
+
+    /// <summary>Runs a cancel or delete call, then reloads. The API's message (for example a 409) is shown as-is.</summary>
+    private async Task RunAsync(Func<Task<ShowingResult>> call, string success)
+    {
+        busy = true;
+        errorMessage = null;
+        try
+        {
+            var result = await call();
+            confirmingId = null;
+            if (result.Success)
+            {
+                notice = success;
+                await LoadAsync();
+            }
+            else
+            {
+                var message = result.Problem?.General();
+                if (result.NotFound)
+                {
+                    await LoadAsync();
+                }
+                errorMessage ??= message;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}
