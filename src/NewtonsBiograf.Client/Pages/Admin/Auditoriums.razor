@@ -1,0 +1,66 @@
+@page "/admin/auditoriums"
+@attribute [Authorize(Roles = Roles.Admin)]
+@using NewtonsBiograf.Client.Services
+@inject AuditoriumApiClient Api
+
+<PageTitle>Auditoriums · Newtons Biograf</PageTitle>
+
+<h1>Auditoriums</h1>
+
+@if (problem is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@problem.General()</AlertBox>
+}
+
+<Card Title="Auditoriums">
+    <p><a class="btn btn-primary" href="admin/auditoriums/new">Add auditorium</a></p>
+    @if (auditoriums is null && problem is null)
+    {
+        <Spinner />
+    }
+    else if (auditoriums is not null && auditoriums.Length == 0)
+    {
+        <p class="text-muted">No auditoriums yet. Add the first one.</p>
+    }
+    else if (auditoriums is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>Name</th><th>Rows</th><th>Seats per row</th><th>Capacity</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var auditorium in auditoriums)
+                {
+                    <tr>
+                        <td>@auditorium.Name</td>
+                        <td>@auditorium.Rows</td>
+                        <td>@auditorium.SeatsPerRow</td>
+                        <td>@auditorium.Capacity</td>
+                        <td>
+                            <a class="btn btn-secondary" href="admin/auditoriums/@auditorium.Id"
+                               aria-label="Edit @auditorium.Name">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</Card>
+
+@code {
+    private AuditoriumDto[]? auditoriums;
+    private ApiProblem? problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.ListAsync();
+        if (result.Success)
+        {
+            auditoriums = result.Auditoriums;
+        }
+        else
+        {
+            problem = result.Problem;
+        }
+    }
+}

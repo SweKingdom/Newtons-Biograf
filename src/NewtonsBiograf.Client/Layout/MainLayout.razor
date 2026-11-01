@@ -18,6 +18,7 @@
                         <li><NavLink href="staff/movies" @onclick="CloseNav">Movies</NavLink></li>
                     </AuthorizeView>
                     <AuthorizeView Roles="@Roles.Admin">
+                        <li><NavLink href="admin/auditoriums" @onclick="CloseNav">Auditoriums</NavLink></li>
                         <li><NavLink href="admin/staff" @onclick="CloseNav">Staff</NavLink></li>
                     </AuthorizeView>
                     <AuthorizeView>

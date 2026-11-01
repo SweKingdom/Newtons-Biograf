@@ -11,7 +11,8 @@ public class MovieClientTests
 {
     private static readonly string[] Fields = ["Title", "Genre", "AgeRating", "LengthMinutes", "Description"];
 
-    private sealed class StubHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
+    /// <summary>Records the last request and answers with a canned response. Shared by the API client tests.</summary>
+    internal sealed class StubHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
     {
         public HttpMethod? Method { get; private set; }
         public string? Path { get; private set; }
@@ -26,13 +27,13 @@ public class MovieClientTests
         }
     }
 
-    private sealed class ThrowingHandler : HttpMessageHandler
+    internal sealed class ThrowingHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             throw new HttpRequestException("offline");
     }
 
-    private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
+    internal sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)
         {
