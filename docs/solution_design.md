@@ -197,3 +197,13 @@ Stories US-138 (cancel API), US-139 (UI). Note: FT-114's stories cover cancellat
 - Too-late and already-cancelled both return 409 (story allowed 400/409; one code chosen).
 - Client: `MyBookings.razor` (Cancel, confirm, disabled reason), new `Pages/Staff/Bookings.razor`, `BookingApiClient.CancelAsync/SearchAsync`, `BookingLimits.CancellationLimitHours` in Shared (UI mirror, server authoritative).
 - Risks: client constant can drift from server config (Low); client clock skew only affects button state; staff showing selector may need an endpoint accessible to ManageBookings (assumed free-text fallback); no client tests.
+
+## Project documentation (FT-115)
+
+Stories US-142 (README.md), US-143 (docs/TESTING.md).
+
+- Files: `README.md` at root (overview, tech, run, config, seeded accounts, 3 scenarios, technique map, testing link, structure); `docs/TESTING.md` (run/filter commands, scenario table mapped to test class.method, coverage matrix). No code or data model changes.
+- Ordering: both are written last, after FT-113 and UI stories, so file paths, UI labels and test names are real and copied from the code (`dotnet test --list-tests`).
+- Decision: README holds the technique map (generics, events, LINQ, async) with file references · one place for reviewers · alternative: separate doc (rejected, extra file).
+- Decision: seeded password documented as the dev demo value from `Seed:Password` · reviewers need to log in · no production secrets involved.
+- Risks: docs drift from code (Med) → paths verified at hand-over; fresh-clone check (AC 4) is manual; no checks/CI exists.
