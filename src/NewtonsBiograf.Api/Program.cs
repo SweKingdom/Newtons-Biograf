@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
+using NewtonsBiograf.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,7 +71,24 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization(options => options.AddAppPolicies());
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new StrictEnumConverterFactory()))
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        var defaultFactory = options.InvalidModelStateResponseFactory;
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            // Body conversion errors (e.g. an unknown enum string) are keyed by JSON path ("$.genre");
+            // key them by property name ("Genre") like every other validation error.
+            foreach (var key in context.ModelState.Keys.Where(k => k.StartsWith("$.") && k.Length > 2).ToArray())
+            {
+                var field = char.ToUpperInvariant(key[2]) + key[3..];
+                context.ModelState.ClearValidationState(key);
+                context.ModelState.AddModelError(field, $"{field} has an invalid value.");
+            }
+            return defaultFactory(context);
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
