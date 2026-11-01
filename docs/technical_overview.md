@@ -23,9 +23,17 @@ Enum values are stored as strings: Genre (Action, Comedy, Drama, Horror, SciFi, 
 `IRepository<T> where T : class` is implemented once by `Repository<T>` over `AppDbContext`. It is registered open-generic (`AddScoped(typeof(IRepository<>), typeof(Repository<>))`). There is no unit of work and no per-entity repository. Services use `IRepository<T>` directly.
 
 ## Configuration
-| Key | Value | Notes |
+
+### JWT settings (US-119)
+
+| Key | Default | Notes |
 |---|---|---|
-| `ConnectionStrings:Default` | `Data Source=newtonsbiograf.db` | SQLite file; local `*.db` files are git-ignored |
+| `Jwt:Issuer` | `NewtonsBiograf` | appsettings |
+| `Jwt:Audience` | `NewtonsBiograf.Client` | appsettings |
+| `Jwt:Key` | none | Secret, at least 32 characters. Set with user secrets or `Jwt__Key`. The API fails at startup if it is missing or too short. `appsettings.Development.json` holds a marked dev-only key. |
+| `Jwt:ExpiryMinutes` | 60 | Token lifetime. |
+
+Identity password rules: minimum length 8; digit, uppercase, lowercase and non-alphanumeric requirements are off. Email is unique and used as the username.
 
 ## Configuration
 | Key | File | Default | Purpose |
@@ -34,15 +42,27 @@ Enum values are stored as strings: Genre (Action, Comedy, Drama, Horror, SciFi, 
 | `ApiBaseUrl` | `src/NewtonsBiograf.Client/wwwroot/appsettings.json` | `https://localhost:7000/` | Base address of the API for the named `HttpClient` |
 
 ## API endpoints
-| Method | Route | Auth | Response |
-|---|---|---|---|
-| GET | `/api/health` | Anonymous | 200 `{ "status": "ok" }` |
+
+### Authentication (US-119)
+
+| Route | Access | Request | Success | Errors |
+|---|---|---|---|---|
+| `POST /api/auth/register` | Anonymous | `{Name, Email, Password}` | 201 `{Id, Name, Email}` | 400 ValidationProblemDetails (`errors` keyed by field). Duplicate email maps to `Email`; short password maps to `Password`. 500 if role `Customer` is missing (user is deleted). |
+| `POST /api/auth/login` | Anonymous | `{Email, Password}` | 200 `{Token, ExpiresAt (UTC), Name, Role, Permissions[]}` | 401 ProblemDetails "Invalid email or password." |
+
+Registration ignores role and permission fields. Every new user gets role `Customer`.
+
+JWT claims: `sub` (user id), `email`, `name`, `role`, and one `permission` claim per stored claim. Signed with HS256.
+
+Bearer validation for protected routes is not yet enabled (US-120).
 
 ## Known gaps
 
-- US-117: the initial migration `InitialCreate` and its snapshot are hand-written and have no `.Designer.cs`. They have not been run. Before release: run `dotnet test NewtonsBiograf.sln`, then `dotnet ef migrations add Check` (must be empty), then `dotnet ef migrations remove`. Regenerate `InitialCreate` if the check is not empty.
-- US-117: `BookingSeat.IsActive` has no database-level default; the default exists only in the CLR property.
-- No checks are configured for the project; no build or test has been run yet.
+- JWT bearer validation and permission enforcement are not in place yet (US-120). Until then, the token is issued but no endpoint checks it.
+- US-120 must set `RoleClaimType="role"` because tokens use the short claim name `role`.
+- US-120 must read staff permissions from the database on each staff request, not from the token. Deactivated staff must be blocked immediately.
+- No account lockout after repeated failed logins.
+- No email confirmation or password reset.
 
 ## Client design system and layout (US-118)
 
