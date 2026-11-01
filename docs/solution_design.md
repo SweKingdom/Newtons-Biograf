@@ -88,3 +88,23 @@ Stories US-124 (API) and US-125 (UI).
 - Enums are sent as strings (wire names), shown via display names ("Sci-Fi", "All ages").
 - Client: `Pages/Staff/Movies.razor`, `MovieForm.razor`, `Services/MovieApiClient.cs`. It maps `ValidationProblemDetails` errors onto `FormField`s, and shows the 409 message in an AlertBox. The nav entry is under `AuthorizeView Policy="ManageMovies"`.
 - Risk: the FK/delete rule for past showings is not in the requirements. Treat it as an assumption until confirmed by the product owner.
+
+## Auditorium management (FT-109)
+
+Stories US-126 (API), US-127 (VIP rows, prices), US-128 (UI).
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET /api/auditoriums`, `GET /api/auditoriums/{id}` | anonymous (assumption: public auditorium filter needs names) | 200, 404 |
+| `POST /api/auditoriums` | `AdminOnly` | 201, 400, 401, 403 |
+| `PUT /api/auditoriums/{id}` | `AdminOnly` | 204, 400, 404, 409 |
+| `PUT /api/auditoriums/{id}/rows/{row}/type` | `AdminOnly` | 204, 400, 404 |
+| `GET /api/pricing` | anonymous | 200 `{StandardSeat, VipSeat}` |
+
+- `AuditoriumsController` uses `IRepository`/`AppDbContext` directly; no `AuditoriumService` (consistent with Movies). DTOs in `Shared/Dtos/AuditoriumDto.cs`.
+- Capacity is computed (Rows × SeatsPerRow); `VipRows` computed from seats (rows whose seats are all VIP). Seats generated on create (all Standard). Layout edit keeps seats at unchanged positions (same Id), adds/removes the rest; new seats inherit their row's type.
+- Layout change is rejected with 409 when a future non-cancelled showing has an active booking or a removed seat was ever booked (assumption, confirmed with PO pending). Bounds 1–26 rows, 1–40 seats per row (assumption). Name unique case-insensitive.
+- Pricing: `Pricing:StandardSeat=140`, `Pricing:VipSeat=200` bound to `PricingOptions` (validated on start, >0). `IPriceCalculator.GetPrice(SeatType)` is the only price source; booking stores `TotalPrice` snapshot.
+- Client: `Pages/Admin/Auditoriums.razor`, `AuditoriumForm.razor`, reusable `Components/SeatGrid.razor` (also for the booking seat map), `Services/AuditoriumApiClient.cs`; nav under `AuthorizeView Policy="AdminOnly"`.
+- Decision: separate `GET /api/pricing` rather than embedding prices in auditorium DTOs · one source for UI and booking · embedding per DTO.
+- Risk: Name case-insensitivity depends on SQLite collation; application-level check is authoritative. Seat removal vs BookingSeat FK (Restrict) — guarded by the 409 rule.
