@@ -543,10 +543,19 @@ Known gaps: `ShowingService.ValidateSlotAsync` uses `DateTime.UtcNow`, so showin
 
 ## Project documentation (US-142)
 
-- `README.md` (repo root) is the entry point for reviewers: project description, technology, run guide for API and client, intended accounts, three user scenarios and a technique map (generics, delegates/events, LINQ, async/await) with file references.
-- Startup behaviour is documented as it is on the current branch: no migration, seeding or `Seed:Password`. This section must be updated when US-140 is merged.
-- Database file: `newtonsbiograf.db` (from `ConnectionStrings:Default`).
-- Open: the seeded account password and the fresh-clone check (AC 4) wait for US-140.
+The repository `README.md` is the reviewer entry point. It has ten sections plus an API notes appendix.
+
+| Section | Content |
+|---|---|
+| 1–3 | Project description, technology, run guide for API and client |
+| 4 | Startup migration and seeding in Development; `newtons.db` is committed |
+| 5 | Configuration: `Seed:Password`, `Seed:Enabled` |
+| 6 | Seeded accounts (six) with demo password `Newtons-Demo-2026` |
+| 7 | Three scenarios: customer books seats, staff schedules a showing, admin creates a staff account |
+| 8 | Technique map: generics, delegates/events, LINQ, async/await with file references |
+| 9 | Link to `docs/TESTING.md` |
+
+Known gap: the fresh-clone check (US-142 AC 4) is pending UAT. The `AnyAsync` row in section 8 names the wrong file.
 
 ## Seed data and committed SQLite database (US-140)
 
