@@ -147,6 +147,18 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Development only: bring the database up to date and add the demo data (accounts, movies, showings, bookings).
+// "Seed:Enabled" = false turns it off (the test project does, because its tests migrate their own databases).
+if (app.Environment.IsDevelopment() && app.Configuration.GetValue("Seed:Enabled", true))
+{
+    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+    await DbSeeder.SeedAsync(db, services.GetRequiredService<UserManager<ApplicationUser>>(),
+        services.GetRequiredService<RoleManager<IdentityRole>>(), app.Configuration, DateTime.UtcNow);
+}
+
 // Creating the subscriber attaches it to the booking events.
 app.Services.GetRequiredService<BookingLogSubscriber>();
 

@@ -327,3 +327,25 @@ Staff with the **Manage bookings** permission (and administrators) can find and 
 - If no booking matches, the page shows "No bookings found".
 - An empty search shows a validation message. Enter a showing id or reference first.
 - If you do not have the permission, the page shows an access-denied message. Ask an administrator to grant **Manage bookings**.
+
+## How to log in with demo accounts
+
+Use these accounts to try the app on a development installation. They are for demonstration only and must not be used in production.
+
+1. Open the app and go to the login page.
+2. Enter one of the email addresses below.
+3. Enter the demo password: `Newtons-Demo-2026`.
+4. Select **Log in**.
+
+| Email | Role | What the account can do |
+|---|---|---|
+| admin@newtons.local | Admin | Everything |
+| staff1@newtons.local | Staff | Manage movies and showings |
+| staff2@newtons.local | Staff | Manage bookings |
+| customer1@newtons.local | Customer | Browse, book and view own bookings |
+| customer2@newtons.local | Customer | Browse, book and view own bookings |
+| customer3@newtons.local | Customer | Browse, book and view own bookings |
+
+**Tip:** The demo data includes three auditoriums, ten movies and showings for the next 14 days. When the app starts in development, showings are added for any day in the next 14 that has none. Existing showings and bookings are kept.
+
+**Warning:** Demo data is created only in development. Production is never seeded.

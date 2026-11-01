@@ -229,9 +229,12 @@ public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvid
     }
 
     /// <summary>A random reference of <see cref="ReferenceLength"/> characters from <see cref="ReferenceAlphabet"/>.</summary>
-    public virtual string NewReference() =>
+    public static string GenerateReference() =>
         new(Enumerable.Range(0, ReferenceLength)
             .Select(_ => ReferenceAlphabet[RandomNumberGenerator.GetInt32(ReferenceAlphabet.Length)]).ToArray());
+
+    /// <summary>The reference for a new booking; virtual so tests can force duplicates.</summary>
+    public virtual string NewReference() => GenerateReference();
 
     /// <summary>
     /// Cancels a booking and frees its seats. Does not save, open a transaction or raise events: the caller owns
