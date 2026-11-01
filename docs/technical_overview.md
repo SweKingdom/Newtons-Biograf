@@ -489,3 +489,25 @@ Read endpoints on `BookingsController` (route `api/bookings`, class-level `[Auth
 **Data:** no migration (`Booking.CancelledAt` exists since US-135). History is kept: `GET api/bookings/mine?scope=history` returns cancelled bookings with the same Reference and TotalPrice.
 
 **Known gaps:** `CancelInternalAsync` still uses `DateTime.UtcNow` for `CancelledAt`; `CancelAsync` overwrites it with the `TimeProvider` value. No test covers a throwing event subscriber.
+
+## Cancellation and booking administration screens (US-139)
+
+**Scope:** client UI for booking cancellation. No new API endpoints. Server rules are in US-138.
+
+| Item | Location | Purpose |
+|---|---|---|
+| `BookingLimits.CancellationLimitHours` | `NewtonsBiograf.Shared/Dtos/BookingDto.cs` | Constant `2`. Customer cancel cut-off in hours before `BookingDto.Start`. |
+| `BookingApiClient.CancelAsync` | `NewtonsBiograf.Client/Services/BookingApiClient.cs` | Calls the cancel endpoint. Returns `BookingCancelResult`. |
+| `BookingApiClient.SearchAsync` | same | Searches bookings by showing id and/or reference. |
+| `BookingText.CanCancel`, `IsTooLateForCustomer`, `LateCancelMessage` | same | Decide button visibility and enabled state. Hold the late-cancel text. |
+| `Pages/MyBookings.razor` | Client | Cancel button, inline confirm panel, disabled state, notice and error messages. Reloads after any cancel attempt. |
+| `Pages/Staff/Bookings.razor` | Client, route `/staff/bookings` | Staff search and cancel. Policy `ManageBookings`. |
+| `Layout/MainLayout.razor` | Client | "Bookings" nav link for `ManageBookings`. |
+
+**Behaviour rules**
+- Customer Cancel: only on Confirmed upcoming bookings. Disabled when `now > Start − 2h`. A 409 from the API still shows its message and reloads.
+- Staff Cancel: any Confirmed booking at any time, after confirm.
+- Staff search requires at least one filter. Otherwise the API returns 400.
+- Staff page access: the `ManageBookings` policy. Others are redirected to access-denied. `GET /api/bookings` returns 403.
+
+**Known gaps:** no client test project exists and the HtmlRenderer cannot simulate events. Tests (`tests/NewtonsBiograf.Tests/CancellationClientTests.cs`) use typed client calls and page source assertions. The browser flow has not been tested live.
