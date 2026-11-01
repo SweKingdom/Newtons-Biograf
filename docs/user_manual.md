@@ -174,31 +174,43 @@ If the change cannot be saved, the row returns to its previous type and a red me
 
 ## How to schedule a showing
 
-Use this chapter to add a showing to the schedule. Times are entered and shown in Europe/Stockholm time.
+Showings are managed from **Showings** in the navigation menu. This menu entry and page are available only to Admins and staff with the **Manage showings** permission. Other users see a message that they are not authorised.
 
-1. Open the showings screen and choose the option to add a new showing.
-2. Select the movie and the auditorium.
-3. Enter the start time. The start time must be in the future.
-4. Save. The end time is calculated from the movie length.
+### Scheduling a new showing
+1. Open **Showings**.
+2. Select **New showing**.
+3. Choose a **Movie**.
+4. Choose an **Auditorium**.
+5. Enter the **Date** and **Start time**.
+6. Check the **Ends about …** line. It shows the start time plus the film length plus 15 minutes for cleaning.
+7. Select **Save**. The new showing appears in the list.
 
-**Tip:** A showing cannot overlap another showing in the same auditorium. If the slot is taken, choose another time or auditorium.
+Tips:
+- The end time is an estimate. The system makes the final check when you save.
+- If the date is in the past, the **Date** field shows an error. Choose a later date.
+- If the showing overlaps another showing in the same auditorium, a red message appears above the form. Change the time or auditorium. Your entries are kept.
+
+### Filtering the list
+- Use the **From** and **To** dates to choose a period. The list starts with today and the next 14 days.
+- Use the **Auditorium** filter to show one auditorium only.
 
 ### Editing a showing
-1. Open the showing from the showings list.
-2. Change the movie, auditorium or start time, then save.
+1. In the list, select **Edit** on the showing.
+2. Change the details and select **Save**.
 
-**Warning:** You can only edit a showing that has no bookings and has not started. If the showing has bookings or has already started, the change is refused. To change it, cancel the showing and create a new one.
+Tips:
+- **Edit** is greyed out when the showing already has bookings or has started. Hover over the button to see the reason.
+- If the change conflicts with another showing, a red message appears above the form.
 
 ### Cancelling a showing
-1. Open the showing and choose the option to cancel it.
-2. Confirm.
+1. In the list, select **Cancel** on a showing with the status **Scheduled**.
+2. Read the confirmation. It states how many active bookings will be cancelled.
+3. Select **Confirm** to cancel the showing. The status changes to **Cancelled**.
 
-**Warning:** Cancelling a showing cancels all of its bookings and frees their seats. Customers are not notified by this app.
+Warning: cancelling a showing cancels its active bookings. This cannot be undone from the screen.
 
 ### Deleting a showing
-1. Open the showing and choose the option to delete it.
-2. Confirm.
+1. In the list, select **Delete** on the showing. The button appears only when the showing has no active bookings.
+2. Confirm the deletion.
 
-**Note:** You can only delete a showing that has no bookings. If it has any booking, cancel the showing instead.
-
-*Screen labels above are generic; confirm exact button names with the product owner before publishing.*
+If the system refuses the deletion, a red message explains why.
