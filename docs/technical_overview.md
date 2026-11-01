@@ -83,3 +83,21 @@ Bearer validation for protected routes is not yet enabled (US-120).
 - **Policies:** `AdminOnly`, `CustomerOnly`, `ManageMovies`, `ManageShowings`, `ManageBookings`, registered by `AddAppPolicies`. Admin passes all permission policies; Staff needs the specific claim.
 - **Errors:** 401 when unauthenticated; 403 when authenticated without role or permission. Both return `application/problem+json`; `OnChallenge` and `OnForbidden` prevent redirects.
 - **Location:** `Api/Auth/Permissions.cs`; the client needs a shared copy later.
+
+## Staff account management (US-121)
+
+Admins create and list staff accounts through `AdminStaffController`. Both endpoints use the `AdminOnly` policy.
+
+| Method | Route | Purpose | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/admin/staff` | Create a staff user (Name, Email, Password, Permissions[]) | 201, `Location: /api/admin/staff` | 400 ValidationProblemDetails (`Permissions`, `Password`, `Email`); 401; 403; 500 if role or claim assignment fails (user is deleted) |
+| GET | `/api/admin/staff` | List users with role Staff, ordered by name, with permissions | 200, array of `StaffDto` | 401; 403 |
+
+Behaviour:
+- New users get role `Staff` and one `permission` claim per distinct permission. Permission names must match `Permissions.All` (`Api/Auth/Permissions.cs`) exactly, case-sensitively.
+- Identity errors are mapped to the `Email` and `Password` fields.
+- Passwords are never returned. Minimum length is 8 characters. Email is unique.
+
+Contracts (`src/NewtonsBiograf.Shared/StaffDtos.cs`): `CreateStaffRequest` (Name: required, max 100 characters; Email; Password; Permissions[]) and `StaffDto`.
+
+Known gaps: no delete or deactivate endpoint for staff. Permission updates are added by US-122.
