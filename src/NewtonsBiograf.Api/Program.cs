@@ -8,6 +8,7 @@ using Microsoft.OpenApi.Models;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
 using NewtonsBiograf.Api.Pricing;
+using NewtonsBiograf.Api.Services;
 using NewtonsBiograf.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +32,13 @@ builder.Services.AddOptions<PricingOptions>()
     .Validate(o => o.VipSeat > 0, "Configuration value 'Pricing:VipSeat' is missing or not greater than 0.")
     .ValidateOnStart();
 builder.Services.AddSingleton<IPriceCalculator, PriceCalculator>();
+builder.Services.AddOptions<ShowingOptions>()
+    .BindConfiguration(ShowingOptions.Section)
+    .Validate(o => o.CleaningMinutes >= 0, "Configuration value 'Showings:CleaningMinutes' must not be negative.")
+    .Validate(o => TimeZoneInfo.TryFindSystemTimeZoneById(o.DisplayTimeZone, out _),
+        "Configuration value 'Showings:DisplayTimeZone' is not a known time zone id.")
+    .ValidateOnStart();
+builder.Services.AddScoped<ShowingService>();
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.User.RequireUniqueEmail = true;
