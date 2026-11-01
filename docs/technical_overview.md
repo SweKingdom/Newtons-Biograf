@@ -193,3 +193,33 @@ The Blazor client provides a staff screen over the movie API.
 **Configuration.** Client permission policies and the `MovieApiClient` registration are set in `Program.cs`. No new settings.
 
 **Tests.** `tests/NewtonsBiograf.Tests/MovieClientTests.cs` covers client mapping. `DesignSystemTests.cs` asserts the US125 structure. There are no bUnit component tests yet (known gap).
+
+## Auditorium API (US-126)
+
+**Controller:** `AuditoriumsController` (no service layer, same approach as the movie API). Uses `IRepository<Auditorium>` and `AppDbContext` for seat queries.
+
+**Endpoints**
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET /api/auditoriums` | anonymous | 200, list ordered by Name |
+| `GET /api/auditoriums/{id}` | anonymous | 200, 404 |
+| `POST /api/auditoriums` | `AdminOnly` | 201 + Location, 400, 401, 403 |
+| `PUT /api/auditoriums/{id}` | `AdminOnly` | 204, 400, 404, 409 |
+
+**Request (`AuditoriumRequest`):** Name (required, max 100), Rows (1–26), SeatsPerRow (1–40).
+
+**Response (`AuditoriumDto`):** Id, Name, Rows, SeatsPerRow, Capacity, VipRows. Capacity is computed as Rows × SeatsPerRow and is not stored. VipRows are the row numbers whose seats are all VIP, from one grouped query.
+
+**Rules**
+- Name is trimmed and checked case-insensitively. A database unique-index conflict is mapped to 400.
+- Create adds the auditorium and its Standard seats in one save.
+- Edit keeps seats at unchanged positions, adds missing seats and removes extra seats. New seats take their row's type (Standard for new rows).
+- Edit returns 409 with "Layout cannot be changed because the auditorium has bookings." when a future, non-cancelled showing in the auditorium has an active booking, or when a seat to be removed is referenced by a BookingSeat. Nothing is changed.
+- Errors are returned as ProblemDetails.
+
+**Data model:** no schema change in this story. Relies on the unique Auditorium Name and unique Seat (Auditorium, Row, Number) from US-117.
+
+**Open points**
+- The anonymous GET currently returns Rows, SeatsPerRow and VipRows. The PO answer mentions only Id, Name and Capacity. To be confirmed.
+- The 409 message is fixed and does not name the affected showings, as the AC specifies. To be confirmed.
