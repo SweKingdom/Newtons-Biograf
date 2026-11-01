@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -30,6 +31,7 @@ public sealed class AdminStaffTests : IAsyncLifetime
             {
                 services.RemoveAll<DbContextOptions<AppDbContext>>();
                 services.AddDbContext<AppDbContext>(o => o.UseSqlite(_connection));
+                services.AddControllers().AddApplicationPart(typeof(PolicyProbeController).Assembly);
             }));
 
         using var scope = _factory.Services.CreateScope();
@@ -51,9 +53,9 @@ public sealed class AdminStaffTests : IAsyncLifetime
         _factory.Services.GetRequiredService<TokenService>().Create(
             new ApplicationUser { Id = "caller-1", Email = "caller@example.com", DisplayName = "Caller" }, role, []).Token;
 
-    private async Task<HttpResponseMessage> Send(HttpMethod method, string? token, object? body = null)
+    private async Task<HttpResponseMessage> Send(HttpMethod method, string? token, object? body = null, string url = Url)
     {
-        using var request = new HttpRequestMessage(method, Url);
+        using var request = new HttpRequestMessage(method, url);
         if (token is not null)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -65,6 +67,9 @@ public sealed class AdminStaffTests : IAsyncLifetime
         using var client = _factory.CreateClient();
         return await client.SendAsync(request);
     }
+
+    private Task<HttpResponseMessage> PutPermissions(string id, string? token, object? body) =>
+        Send(HttpMethod.Put, token, body, $"{Url}/{id}/permissions");
 
     private static object NewStaff(string name = "Sara", string email = "sara@example.com",
         string password = "password1", string[]? permissions = null) =>
@@ -78,7 +83,7 @@ public sealed class AdminStaffTests : IAsyncLifetime
 
     private Task<int> UserCount() => WithServices(sp => sp.GetRequiredService<AppDbContext>().Users.CountAsync());
 
-    private Task SeedUser(string name, string email, string role, params string[] permissions) =>
+    private Task<string> SeedUser(string name, string email, string role, params string[] permissions) =>
         WithServices(async sp =>
         {
             var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
@@ -89,8 +94,24 @@ public sealed class AdminStaffTests : IAsyncLifetime
             {
                 await users.AddClaimsAsync(user, permissions.Select(p => new Claim(Permissions.ClaimType, p)));
             }
-            return 0;
+            return user.Id;
         });
+
+    private Task<string[]> PermissionClaims(string id) =>
+        WithServices(async sp =>
+        {
+            var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
+            var claims = await users.GetClaimsAsync((await users.FindByIdAsync(id))!);
+            return claims.Where(c => c.Type == Permissions.ClaimType).Select(c => c.Value).Order().ToArray();
+        });
+
+    private async Task<string> LoginToken(string email)
+    {
+        using var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { Email = email, Password = "password1" });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("token").GetString()!;
+    }
 
     private static async Task<Dictionary<string, string[]>> Errors(HttpResponseMessage response)
     {
@@ -251,5 +272,110 @@ public sealed class AdminStaffTests : IAsyncLifetime
         var response = await Send(HttpMethod.Get, TokenFor(Roles.Admin));
 
         Assert.Empty((await response.Content.ReadFromJsonAsync<StaffDto[]>())!);
+    }
+
+    [Fact]
+    public async Task US122_Ac1_PUT_replaces_the_permission_set_and_leaves_other_claims_alone()
+    {
+        var id = await SeedUser("Sara", "sara@example.com", Roles.Staff, Permissions.ManageMovies, Permissions.ManageShowings);
+        await WithServices(async sp =>
+        {
+            var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
+            return await users.AddClaimAsync((await users.FindByIdAsync(id))!, new Claim("shoe-size", "42"));
+        });
+
+        var response = await PutPermissions(id, TokenFor(Roles.Admin),
+            new { Permissions = new[] { Permissions.ManageShowings, Permissions.ManageBookings, Permissions.ManageBookings } });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal([Permissions.ManageBookings, Permissions.ManageShowings], await PermissionClaims(id));
+        Assert.True(await WithServices(async sp =>
+        {
+            var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
+            return (await users.GetClaimsAsync((await users.FindByIdAsync(id))!)).Any(c => c.Type == "shoe-size" && c.Value == "42");
+        }));
+    }
+
+    [Fact]
+    public async Task US122_Ac1_PUT_with_the_same_set_is_idempotent()
+    {
+        var id = await SeedUser("Sara", "sara@example.com", Roles.Staff, Permissions.ManageMovies);
+
+        var response = await PutPermissions(id, TokenFor(Roles.Admin), new { Permissions = new[] { Permissions.ManageMovies } });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal([Permissions.ManageMovies], await PermissionClaims(id));
+    }
+
+    [Fact]
+    public async Task US122_Ac2_Empty_list_removes_all_permissions_and_the_next_login_gets_403_on_ManageMovies()
+    {
+        var id = await SeedUser("Sara", "sara@example.com", Roles.Staff, Permissions.ManageMovies, Permissions.ManageBookings);
+        Assert.Equal(HttpStatusCode.OK, (await Send(HttpMethod.Get, await LoginToken("sara@example.com"), url: "/api/probe/movies")).StatusCode);
+
+        var response = await PutPermissions(id, TokenFor(Roles.Admin), new { Permissions = Array.Empty<string>() });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(await PermissionClaims(id));
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(HttpMethod.Get, await LoginToken("sara@example.com"), url: "/api/probe/movies")).StatusCode);
+    }
+
+    [Fact]
+    public async Task US122_Ac3_Unknown_user_returns_404()
+    {
+        var response = await PutPermissions(Guid.NewGuid().ToString(), TokenFor(Roles.Admin), new { Permissions = Array.Empty<string>() });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(Roles.Admin)]
+    [InlineData(Roles.Customer)]
+    public async Task US122_Ac3_Target_in_role_Admin_or_Customer_returns_400_and_claims_are_unchanged(string role)
+    {
+        var id = await SeedUser("Target", "target@example.com", role, Permissions.ManageMovies);
+
+        var response = await PutPermissions(id, TokenFor(Roles.Admin), new { Permissions = new[] { Permissions.ManageBookings } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal([Permissions.ManageMovies], await PermissionClaims(id));
+    }
+
+    [Theory]
+    [InlineData(null, 401)]
+    [InlineData(Roles.Customer, 403)]
+    [InlineData(Roles.Staff, 403)]
+    public async Task US122_Ac3_Non_admin_caller_is_rejected_and_claims_are_unchanged(string? role, int expected)
+    {
+        var id = await SeedUser("Sara", "sara@example.com", Roles.Staff, Permissions.ManageMovies);
+
+        var response = await PutPermissions(id, role is null ? null : TokenFor(role), new { Permissions = Array.Empty<string>() });
+
+        Assert.Equal(expected, (int)response.StatusCode);
+        Assert.Equal([Permissions.ManageMovies], await PermissionClaims(id));
+    }
+
+    [Fact]
+    public async Task US122_Ac3_Unknown_permission_returns_400_on_Permissions_and_claims_are_unchanged()
+    {
+        var id = await SeedUser("Sara", "sara@example.com", Roles.Staff, Permissions.ManageMovies);
+
+        var response = await PutPermissions(id, TokenFor(Roles.Admin),
+            new { Permissions = new[] { Permissions.ManageBookings, "Foo" } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Foo", Assert.Single((await Errors(response))["Permissions"]));
+        Assert.Equal([Permissions.ManageMovies], await PermissionClaims(id));
+    }
+
+    [Fact]
+    public async Task US122_Ac3_Missing_permissions_list_returns_400_and_claims_are_unchanged()
+    {
+        var id = await SeedUser("Sara", "sara@example.com", Roles.Staff, Permissions.ManageMovies);
+
+        var response = await PutPermissions(id, TokenFor(Roles.Admin), new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal([Permissions.ManageMovies], await PermissionClaims(id));
     }
 }

@@ -20,4 +20,11 @@ public record CreateStaffRequest
     public string[]? Permissions { get; init; } = [];
 }
 
+/// <summary>Full replacement permission set for a staff account. The list is required but may be empty.</summary>
+public record UpdatePermissionsRequest
+{
+    [Required(ErrorMessage = "Send the full list of permissions (it may be empty).")]
+    public string[]? Permissions { get; init; }
+}
+
 public record StaffDto(string Id, string Name, string Email, string[] Permissions);

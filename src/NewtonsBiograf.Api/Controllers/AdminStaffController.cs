@@ -13,6 +13,7 @@ namespace NewtonsBiograf.Api.Controllers;
 [Authorize(Policy = Policies.AdminOnly)]
 public class AdminStaffController(
     UserManager<ApplicationUser> users,
+    AppDbContext db,
     ILogger<AdminStaffController> logger) : ControllerBase
 {
     [HttpPost]
@@ -87,6 +88,56 @@ public class AdminStaffController(
             staff.Add(new StaffDto(user.Id, user.DisplayName, user.Email!, permissions));
         }
         return Ok(staff);
+    }
+
+    /// <summary>Replaces the full permission set of a staff user. Takes effect on the user's next login.</summary>
+    [HttpPut("{id}/permissions")]
+    public async Task<IActionResult> UpdatePermissions(string id, UpdatePermissionsRequest request)
+    {
+        var requested = request.Permissions!.Distinct().ToArray();
+        var unknown = requested.Where(p => !Permissions.All.Contains(p)).ToArray();
+        if (unknown.Length > 0)
+        {
+            foreach (var name in unknown)
+            {
+                ModelState.AddModelError(nameof(UpdatePermissionsRequest.Permissions), $"Unknown permission: {name}.");
+            }
+            return ValidationProblem(ModelState);
+        }
+
+        var user = await users.FindByIdAsync(id);
+        if (user is null)
+        {
+            return Problem(title: "Staff user not found.", statusCode: StatusCodes.Status404NotFound);
+        }
+        if (!await users.IsInRoleAsync(user, Roles.Staff))
+        {
+            return Problem(title: "Permissions can only be changed for staff accounts.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var current = (await users.GetClaimsAsync(user)).Where(c => c.Type == Permissions.ClaimType).ToArray();
+        var currentNames = current.Select(c => c.Value).ToArray();
+        var toRemove = current.Where(c => !requested.Contains(c.Value)).ToArray();
+        var toAdd = requested.Except(currentNames).Select(p => new Claim(Permissions.ClaimType, p)).ToArray();
+
+        if (toRemove.Length > 0 || toAdd.Length > 0)
+        {
+            // One transaction so a failed add never leaves the user with the old set half removed.
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var removed = toRemove.Length == 0 ? IdentityResult.Success : await users.RemoveClaimsAsync(user, toRemove);
+            var added = !removed.Succeeded || toAdd.Length == 0 ? removed : await users.AddClaimsAsync(user, toAdd);
+            if (!added.Succeeded)
+            {
+                logger.LogError("Could not update permissions of staff user {UserId}: {Failure}.",
+                    user.Id, string.Join(", ", added.Errors.Select(e => e.Code)));
+                return Problem(title: "Could not update the permissions. Please try again later.",
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
+            await transaction.CommitAsync();
+        }
+
+        return NoContent();
     }
 
     private static string FieldFor(string code) => code switch

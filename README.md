@@ -20,3 +20,9 @@ Example (local): `dotnet user-secrets set "Jwt:Key" "<random string of 32+ chara
 - `POST /api/auth/register` `{ name, email, password }` creates a customer account (role `Customer`; password at least 8 characters). It returns `201` and does not log in.
 - `POST /api/auth/login` `{ email, password }` returns `{ token, expiresAt, name, role, permissions }`. Wrong credentials return `401` "Invalid email or password."
 - The roles `Admin`, `Staff` and `Customer` must exist in the database; registration fails with `500` otherwise.
+
+## Staff permissions
+
+- `PUT /api/admin/staff/{id}/permissions` `{ permissions: [...] }` (Admin only) replaces the full permission set of a staff user and returns `204`. An empty list removes all permissions. Valid names: `ManageMovies`, `ManageShowings`, `ManageBookings`.
+- Errors: `400` for an unknown permission or when the target is not in role `Staff` (an Admin or Customer), `404` for an unknown user, `401`/`403` for callers who are not an admin.
+- **Changes apply on the staff member's next login.** Tokens are not revoked, so a token issued earlier keeps the old permissions until it expires (`Jwt:ExpiryMinutes`, default 60 minutes).
