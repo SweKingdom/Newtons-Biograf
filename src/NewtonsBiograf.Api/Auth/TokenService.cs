@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NewtonsBiograf.Api.Data;
+using NewtonsBiograf.Shared;
 
 namespace NewtonsBiograf.Api.Auth;
 
