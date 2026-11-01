@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
 using NewtonsBiograf.Api.Events;
@@ -438,6 +440,8 @@ public sealed class BookingCreateTests : IAsyncLifetime
             services.AddScoped<BookingService>(sp => new ScriptedReferenceBookingService(
                 sp.GetRequiredService<AppDbContext>(), sp.GetRequiredService<IPriceCalculator>(),
                 sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<IBookingEventPublisher>(),
+                sp.GetRequiredService<IBookingEvents>(), sp.GetRequiredService<IOptions<BookingOptions>>(),
+                sp.GetRequiredService<ILogger<BookingService>>(),
                 () =>
                 {
                     var reference = queue.Dequeue();
@@ -448,7 +452,9 @@ public sealed class BookingCreateTests : IAsyncLifetime
     }
 
     private sealed class ScriptedReferenceBookingService(AppDbContext db, IPriceCalculator prices, TimeProvider clock,
-        IBookingEventPublisher publisher, Func<string> next) : BookingService(db, prices, clock, publisher)
+        IBookingEventPublisher publisher, IBookingEvents events, IOptions<BookingOptions> options,
+        ILogger<BookingService> logger, Func<string> next)
+        : BookingService(db, prices, clock, publisher, events, options, logger)
     {
         public override string NewReference() => next();
     }

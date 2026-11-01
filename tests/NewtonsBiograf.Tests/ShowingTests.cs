@@ -8,6 +8,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
 using NewtonsBiograf.Api.Events;
@@ -646,7 +648,8 @@ public sealed class ShowingTests : IAsyncLifetime
     }
 
     private sealed class FailingOnSecondBookingService(AppDbContext db, IPriceCalculator prices, TimeProvider clock,
-        IBookingEventPublisher publisher) : BookingService(db, prices, clock, publisher)
+        IBookingEventPublisher publisher, IBookingEvents events, IOptions<BookingOptions> options, ILogger<BookingService> logger)
+        : BookingService(db, prices, clock, publisher, events, options, logger)
     {
         private int _calls;
 

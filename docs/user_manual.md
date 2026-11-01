@@ -297,3 +297,26 @@ Use **My bookings** to see the bookings you have made. This page is available to
 - If a tab shows "You have no bookings" (or similar empty text), you have no bookings in that list yet.
 - If the list cannot be loaded, an error message is shown. Refresh the page and try again.
 - Staff accounts cannot open My bookings. Anonymous visitors are sent to the login page.
+
+## How to cancel a booking
+
+Use this to release the seats of a booking when your plans change.
+
+**Customers**
+
+1. Sign in and open **My bookings**.
+2. Find the booking under **Upcoming** and select it.
+3. Select **Cancel booking**.
+4. Confirm. The booking moves to **History** with the status **Cancelled**. Its seats are free for other customers.
+
+Tips and warnings:
+- You can cancel up to **2 hours before the showing starts**. Exactly 2 hours before is still allowed.
+- If it is later than that, the cancel option is refused with the message "Bookings can only be cancelled up to 2 hours before the showing starts." The booking stays Confirmed and the seats stay taken. Contact the cinema for help.
+- You can only cancel your own bookings.
+- No refund is made by this function. Refunds are out of scope for this version.
+
+**Staff and administrators**
+
+- Staff with the **Manage bookings** permission, and administrators, can cancel any booking at any time, including after the showing has started.
+- Staff without this permission do not see the option and are refused if they try.
+- A booking that is already cancelled cannot be cancelled again. The message "Booking is already cancelled." is shown.
