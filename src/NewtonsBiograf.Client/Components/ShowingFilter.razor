@@ -1,0 +1,101 @@
+@using System.Globalization
+@using NewtonsBiograf.Client.Services
+@implements IDisposable
+
+<div class="filter-bar" role="search" aria-label="Filter showings">
+    <FormField Label="Genre" Id="filter-genre">
+        <select id="filter-genre" @bind="genre" @bind:after="ChangedAsync">
+            <option value="">All genres</option>
+            @foreach (var name in Genres)
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+    </FormField>
+    <FormField Label="Date" Id="filter-date">
+        <input id="filter-date" type="date" min="@Iso(Today)" max="@Iso(Today.AddDays(13))" @bind="date" @bind:after="ChangedAsync" />
+    </FormField>
+    <FormField Label="Auditorium" Id="filter-auditorium">
+        <select id="filter-auditorium" @bind="auditorium" @bind:after="ChangedAsync">
+            <option value="">All auditoriums</option>
+            @foreach (var option in Auditoriums)
+            {
+                <option value="@option.Id">@option.Name</option>
+            }
+        </select>
+    </FormField>
+    <FormField Label="Title" Id="filter-title">
+        <input id="filter-title" type="search" autocomplete="off" value="@title" @oninput="TitleInputAsync" />
+    </FormField>
+    <div class="form-field">
+        <AppButton Variant="AppButton.ButtonVariant.Secondary" OnClick="ClearAsync">Clear filters</AppButton>
+    </div>
+</div>
+
+@code {
+    private const int DebounceMilliseconds = 300;
+
+    private string genre = "";
+    private DateOnly? date;
+    private string auditorium = "";
+    private string title = "";
+    private CancellationTokenSource? debounce;
+
+    [Parameter] public string[] Genres { get; set; } = [];
+
+    [Parameter] public AuditoriumOption[] Auditoriums { get; set; } = [];
+
+    /// <summary>Today in the display time zone: the date picker allows today and the 13 days after it.</summary>
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+
+    [Parameter] public EventCallback<ShowingFilterModel> OnChanged { get; set; }
+
+    private static string Iso(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>Reports the current filter. A pending title change is dropped because this report already includes it.</summary>
+    private Task ChangedAsync()
+    {
+        debounce?.Cancel();
+        return OnChanged.InvokeAsync(new ShowingFilterModel
+        {
+            Genre = genre,
+            Date = date,
+            AuditoriumId = int.TryParse(auditorium, out var id) ? id : null,
+            Title = title
+        });
+    }
+
+    /// <summary>Waits until the visitor has paused typing, so the list is not reloaded on every key.</summary>
+    private async Task TitleInputAsync(ChangeEventArgs e)
+    {
+        title = e.Value?.ToString() ?? "";
+        debounce?.Cancel();
+        debounce?.Dispose();
+        var source = debounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(DebounceMilliseconds, source.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await ChangedAsync();
+    }
+
+    private Task ClearAsync()
+    {
+        genre = "";
+        date = null;
+        auditorium = "";
+        title = "";
+        return ChangedAsync();
+    }
+
+    public void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+    }
+}

@@ -22,8 +22,11 @@ public record ShowingDto(
     ShowingStatus Status,
     int ActiveBookingCount);
 
-/// <summary>Scheduling settings the screens need: minutes added after each film for cleaning.</summary>
-public record ShowingSettingsDto(int CleaningMinutes);
+/// <summary>
+/// Settings the screens need: minutes added after each film for cleaning, and the time zone (IANA id) in which
+/// showing times are displayed.
+/// </summary>
+public record ShowingSettingsDto(int CleaningMinutes, string DisplayTimeZone = "Europe/Stockholm");
 
 /// <summary>
 /// A showing in the public list. Genre and AgeRating are display names ("Sci-Fi", "All ages"); Start and End are UTC;
@@ -41,6 +44,16 @@ public record ShowingListItem(
     DateTime Start,
     DateTime End,
     int FreeSeats);
+
+/// <summary>A movie as shown on its public page: Genre and AgeRating are display names; Showings are its upcoming ones.</summary>
+public record MovieDetailDto(
+    int Id,
+    string Title,
+    string? Description,
+    int LengthMinutes,
+    string Genre,
+    string AgeRating,
+    ShowingListItem[] Showings);
 
 /// <summary>An auditorium as offered in the public filter dropdown.</summary>
 public record AuditoriumOption(int Id, string Name);

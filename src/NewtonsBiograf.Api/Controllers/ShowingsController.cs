@@ -16,10 +16,10 @@ public class ShowingsController(ShowingService slots, IRepository<Showing> showi
     IOptions<ShowingOptions> options)
     : ControllerBase
 {
-    /// <summary>Scheduling settings for the staff form's end-time preview; not secret, so anonymous.</summary>
+    /// <summary>Scheduling settings (cleaning minutes, display time zone) for the screens; not secret, so anonymous.</summary>
     [HttpGet("settings")]
     [AllowAnonymous]
-    public ShowingSettingsDto Settings() => new(options.Value.CleaningMinutes);
+    public ShowingSettingsDto Settings() => new(options.Value.CleaningMinutes, options.Value.DisplayTimeZone);
 
     /// <summary>Staff list of showings starting in [from, to), optionally in one auditorium, ordered by start time.</summary>
     [HttpGet]

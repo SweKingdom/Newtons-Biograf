@@ -1,0 +1,6 @@
+.filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0 var(--space-4);
+    align-items: end;
+}
