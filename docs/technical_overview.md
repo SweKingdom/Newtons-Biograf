@@ -337,3 +337,25 @@ Options are bound and validated on startup in `Program.cs`.
 - **Time handling:** the API and database store UTC. The UI displays and accepts browser-local time and sends ISO UTC with `Z`. The end-time preview is cosmetic; the API is the authority for conflicts.
 - **Tests:** `tests/NewtonsBiograf.Tests/ShowingClientTests.cs`. No UI component tests are configured; screens are verified manually in UAT.
 - **Deployment:** no migrations and no new configuration.
+
+## Public showings search API (US-132)
+
+Anonymous read-only endpoints in `PublicController` (route `api/public`, `[AllowAnonymous]`). They are separate from the staff routes so that auth is not mixed on one route.
+
+| Route | Auth | Result |
+|---|---|---|
+| `GET /api/public/showings?genre&date&auditoriumId&title` | anonymous | 200 `ShowingListItem[]`, 400 ProblemDetails |
+| `GET /api/public/genres` | anonymous | 200 `string[]`, distinct and sorted |
+| `GET /api/public/auditoriums` | anonymous | 200 `AuditoriumOption[]` (`Id`, `Name`) |
+
+Rules:
+- Window: showings with `Status` not Cancelled and `StartTime` in (now, now+14 days].
+- `date` is `yyyy-MM-dd` in `Showings:DisplayTimeZone`, converted to UTC [00:00, next 00:00).
+- `title` is trimmed, max 100 characters, matched in memory (case-insensitive, so å/ä/ö work).
+- `FreeSeats` = auditorium seats − seats of Confirmed bookings.
+- Result capped at 500 rows, sorted by `StartTime`, then `Id`.
+- Read-only, `AsNoTracking`, no user data returned.
+- The clock is `TimeProvider`, registered as `TimeProvider.System` in `Program.cs`.
+- Staff route `GET /api/showings` is unchanged (`ManageShowings`).
+
+Configuration: `Showings:DisplayTimeZone` (Europe/Stockholm).
