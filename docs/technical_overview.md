@@ -511,3 +511,25 @@ Read endpoints on `BookingsController` (route `api/bookings`, class-level `[Auth
 - Staff page access: the `ManageBookings` policy. Others are redirected to access-denied. `GET /api/bookings` returns 403.
 
 **Known gaps:** no client test project exists and the HtmlRenderer cannot simulate events. Tests (`tests/NewtonsBiograf.Tests/CancellationClientTests.cs`) use typed client calls and page source assertions. The browser flow has not been tested live.
+
+## Scenario tests (US-141)
+
+Test project: `tests/NewtonsBiograf.Tests`. Run with `dotnet test tests/NewtonsBiograf.Tests` or `npm run test`.
+
+| Component | Purpose |
+|---|---|
+| `TestDb` | Real migrated SQLite, in-memory or temporary file. Seeds 2 auditoriums, a movie and 2 customers. |
+| `FakeClock : TimeProvider` | Controllable time for cancellation and overlap rules. |
+| `ApiFactory : WebApplicationFactory<Program>` | API test host with test DB, fake clock, recorded BookingCreated/BookingCancelled events and a signed-in client. |
+| `RecordingEvents` | Captures raised domain events for assertions. |
+
+Scenario classes (all in `[Collection("Scenarios")]`, so they do not run in parallel):
+
+| Class | Covers |
+|---|---|
+| `BookingScenarios` | Booking seats, total and reference, double booking, parallel race |
+| `CancellationScenarios` | Cancellation limits (2h inclusive), staff permissions |
+| `ShowingOverlapScenarios` | Overlap rejection, back-to-back acceptance |
+| `AccessScenarios` | Other customer's booking (403), unauthenticated (401) |
+
+Known gaps: `ShowingService.ValidateSlotAsync` uses `DateTime.UtcNow`, so showing tests use fixed 2040 dates. No CI pipeline runs these tests yet.
