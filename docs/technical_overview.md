@@ -359,3 +359,13 @@ Rules:
 - Staff route `GET /api/showings` is unchanged (`ManageShowings`).
 
 Configuration: `Showings:DisplayTimeZone` (Europe/Stockholm).
+
+## Public browsing screens (US-133)
+
+- **Routes:** `/` (`Home.razor`) and `/movies/{Id:int}` (`MovieDetail.razor`). Both are anonymous; no authorization attribute.
+- **Client service:** `PublicApiClient` (typed HttpClient, no auth handler, registered in `Program.cs`). Methods: `GetShowingsAsync(ShowingFilterModel)`, `GetGenresAsync`, `GetAuditoriumsAsync`, `GetMovieAsync(id)`. Query strings use `Uri.EscapeDataString` and omit empty values. Results are wrapped in `PublicResult<T>`.
+- **Display time:** `DisplayTime` formats times in `Showings:DisplayTimeZone`, read from `GET /api/showings/settings` (`ShowingSettingsDto.DisplayTimeZone`). Assumption: Stockholm when not set. Home groups showings by the local date.
+- **Book routing:** `AuthRedirect.BookUrl` returns `/showings/{id}/book` for logged-in users and `/login?returnUrl=...` for anonymous users. `AuthRedirect.SafeReturnUrl` only accepts local return URLs. `Login.razor` honours `returnUrl`.
+- **API:** `GET /api/public/movies/{id}` (anonymous) returns `MovieDetailDto` (`Id, Title, Description, LengthMinutes, Genre, AgeRating, Showings: ShowingListItem[]`). Showings use the same query as the public showings search, filtered by movie. 404 for an unknown id.
+- **Filter limits:** date input min = today, max = today + 13 days.
+- **Tests:** `PublicBrowsingTests.cs` (movie detail 200, 200 empty, 404) and `PublicClientTests.cs` (client query, errors, grouping, time-zone fallback, Book URLs, routes). No bUnit tests yet.

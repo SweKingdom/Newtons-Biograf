@@ -231,3 +231,26 @@ Tips:
 - All filters can be combined. A showing must match every filter you set.
 - If the list is empty, remove a filter or choose another date.
 - A date in the wrong format or an auditorium that is not a valid choice shows an error message. Pick the value again from the dropdown.
+
+## How to browse showings and movies
+
+You do not need an account to browse. Open the home page to see what is on.
+
+1. Open the home page (`/`). Showings for the next 14 days are listed, grouped under each day (for example "Tuesday 5 November 2030").
+2. Each row shows the movie, its age rating, the start time, the auditorium and the number of free seats.
+3. To narrow the list, use the filters at the top:
+   1. **Genre** — choose a genre.
+   2. **Date** — choose a day within the next 14 days.
+   3. **Auditorium** — choose an auditorium.
+   4. **Title** — type part of a movie title. The list updates a moment after you stop typing.
+4. The filters work together. Select **Clear filters** to reset them all.
+5. If no showing matches, the page shows "No showings match your filters".
+6. To see a movie's details, select its title. The movie page shows the description, length, genre, age rating and its upcoming showings. If the movie cannot be found, the page shows "Movie not found".
+
+**Tip:** Times are shown in cinema local time (Stockholm).
+
+## How to book a showing as a visitor
+1. On the home page or a movie page, select **Book** on the showing you want.
+2. If you are logged in, the seat selection page opens.
+3. If you are not logged in, the login page opens. After you log in, you are returned to the booking page for that showing.
+4. A showing with no free seats shows **Sold out**. The **Book** button is disabled.
