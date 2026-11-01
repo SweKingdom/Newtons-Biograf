@@ -171,3 +171,14 @@ Stories US-134 (seat map), US-135 (create booking), US-136 (my bookings/read), U
 - Decision: seat map anonymous, in its own controller · map visible to visitors, booking needs login · alternative: authenticated only (rejected, blocks browsing).
 - Decision: 409 body carries the refreshed seat map · one round trip for the client · alternative: client refetches.
 - Risks: concurrency test needs a file-based SQLite DB (Med); `CancelInternalAsync` contract shared with FT-110 and the cancel-booking story; booking by staff on behalf of customers not specified (Customer only assumed); 403 vs 404 for another user's booking follows the story assumption; no client test project (manual UI checks).
+
+## Seed data and scenario tests (FT-113)
+
+Stories US-140 (seed + committed DB), US-141 (xUnit scenarios).
+
+- Seed: `Data/DbSeeder.cs`, run at Development startup after `MigrateAsync`; inserts via the context, idempotent by natural keys, showings/bookings skipped if showings exist. Accounts `admin@`, `staff1@` (ManageMovies+ManageShowings), `staff2@` (ManageBookings), `customer1..3@newtons.local`; demo password from `Seed:Password`. `newtons.db` committed (`.gitignore` exception; WAL/SHM ignored).
+- Tests: `tests/NewtonsBiograf.Tests` with `TestDb` (SQLite in-memory, kept-open connection; file-based variant for the parallel booking test), `ApiFactory` (WebApplicationFactory), `FakeClock : IClock`. Scenario files: Booking, Cancellation, ShowingOverlap, Access, Seed.
+- Decision: tests use `IClock` rather than `TimeProvider` · one time abstraction across app and tests · alternative: adopt TimeProvider everywhere (rejected, already designed with IClock).
+- Decision: real SQLite, not EF InMemory · filtered unique index must be enforced.
+- Open (non-blocking): showings in the committed DB go stale after 14 days; assumed Development startup tops up missing future days.
+- Risks: parallel test needs file DB (Med); cancel boundary (exactly 2h = allowed) and error codes must match the booking-cancel contract; no checks/CI configured, so tests run locally only.
