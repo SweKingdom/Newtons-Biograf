@@ -108,3 +108,25 @@ Stories US-126 (API), US-127 (VIP rows, prices), US-128 (UI).
 - Client: `Pages/Admin/Auditoriums.razor`, `AuditoriumForm.razor`, reusable `Components/SeatGrid.razor` (also for the booking seat map), `Services/AuditoriumApiClient.cs`; nav under `AuthorizeView Policy="AdminOnly"`.
 - Decision: separate `GET /api/pricing` rather than embedding prices in auditorium DTOs · one source for UI and booking · embedding per DTO.
 - Risk: Name case-insensitivity depends on SQLite collation; application-level check is authoritative. Seat removal vs BookingSeat FK (Restrict) — guarded by the 409 rule.
+
+## Showing management (FT-110)
+
+Stories US-129 (create + rules), US-130 (edit, cancel, delete), US-131 (UI).
+
+| Route | Auth | Result |
+|---|---|---|
+| `POST /api/showings` | `ManageShowings` | 201, 400, 401, 403, 409 |
+| `PUT /api/showings/{id}` | `ManageShowings` | 204, 400, 404, 409 |
+| `POST /api/showings/{id}/cancel` | `ManageShowings` | 204, 404 |
+| `DELETE /api/showings/{id}` | `ManageShowings` | 204, 404, 409 |
+| `GET /api/showings`, `GET /api/showings/{id}` (staff) | `ManageShowings` | 200, 404 |
+| `GET /api/showings/settings` | anonymous | 200 `{CleaningMinutes}` |
+
+- `ShowingsController` + one `ShowingService` (deviation from the Movies/Auditoriums no-service pattern: slot validation is shared by create and edit, and cancel orchestrates `BookingService.CancelInternalAsync` in a transaction).
+- Rules: `EndTime = Start + Movie.LengthMinutes + Showings:CleaningMinutes (15)`; `Start > UtcNow`; overlap = non-cancelled showing in same auditorium with `existing.Start < new.End AND new.Start < existing.End` (touching allowed); conflict → 409 naming movie, time range and auditorium (times in `Showings:DisplayTimeZone`, Europe/Stockholm).
+- Cancel: single DB transaction; showing → Cancelled, each Confirmed booking cancelled via shared `CancelInternalAsync` (no own transaction/events); `BookingCancelled` events raised after commit; idempotent.
+- Delete only with no bookings (FK Restrict); edit blocked (409) when showing has active bookings, has started, or is cancelled (assumption, PO question open).
+- Config: `Showings:CleaningMinutes=15`, `Showings:DisplayTimeZone`. Index `(AuditoriumId, StartTime)` recommended.
+- Client: `Pages/Staff/Showings.razor`, `ShowingForm.razor`, `Services/ShowingApiClient.cs`; nav under `AuthorizeView Policy="ManageShowings"`; end-time preview is cosmetic.
+- Decision: overlap check at application level, no DB constraint · SQLite cannot express range exclusion · accept rare race (low-volume internal tool).
+- Risks: concurrent creates may both pass the check (Low/Med); SQLite datetime comparison relies on UTC ISO storage (tested); `BookingService.CancelInternalAsync` contract must match across stories; time zone and edit-with-bookings pending PO answer.
