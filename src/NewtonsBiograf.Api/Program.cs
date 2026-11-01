@@ -1,10 +1,16 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using NewtonsBiograf.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var clientOrigin = builder.Configuration["Cors:ClientOrigin"]
     ?? throw new InvalidOperationException("Configuration value 'Cors:ClientOrigin' is missing.");
+var connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("Configuration value 'ConnectionStrings:Default' is missing.");
 
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
