@@ -50,3 +50,26 @@ Tips:
 - If the password is shorter than 8 characters, the form shows an error next to the Password field.
 - Permissions are chosen at creation. Changing them later is described in the staff permissions chapter.
 - Staff members can sign in with the email and password you set.
+
+## How to change staff permissions
+
+Admins can replace or remove the permissions of a Staff account. This changes what that employee can do.
+
+**Before you start**
+- You must be signed in as an Admin.
+- The target account must have the role Staff. Admin and Customer accounts cannot be changed this way.
+
+**Steps**
+1. Identify the staff member's user id.
+2. Send the new permission list for that user. The list replaces the whole existing set.
+3. To remove all permissions, send an empty list.
+
+**What you will see**
+- A successful change is confirmed with no content (HTTP 204).
+- The new permissions are stored immediately, but the staff member only gets them on their next login.
+
+**Tips and warnings**
+- The change is a full replacement. Include every permission the employee should keep.
+- A staff member who is already signed in keeps their old permissions until their session token expires (default 60 minutes). Ask them to sign out and sign in again to apply the change at once.
+- Unknown permission names are rejected, and nothing is changed.
+- Sending the same list twice is safe.
