@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
+using NewtonsBiograf.Api.Events;
+using NewtonsBiograf.Api.Pricing;
 using NewtonsBiograf.Api.Services;
 using NewtonsBiograf.Shared;
 
@@ -643,7 +645,8 @@ public sealed class ShowingTests : IAsyncLifetime
             throw new InvalidOperationException("subscriber failed");
     }
 
-    private sealed class FailingOnSecondBookingService : BookingService
+    private sealed class FailingOnSecondBookingService(AppDbContext db, IPriceCalculator prices, TimeProvider clock,
+        IBookingEventPublisher publisher) : BookingService(db, prices, clock, publisher)
     {
         private int _calls;
 
