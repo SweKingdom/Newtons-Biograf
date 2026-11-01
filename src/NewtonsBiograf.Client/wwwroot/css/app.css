@@ -11,6 +11,10 @@
     --color-success: #6fcf8e;
     --color-border: #342d25;
 
+    /* Seat types: always paired with a text label, never colour alone */
+    --seat-standard: #2f5873;
+    --seat-vip: #e0a93b;
+
     /* Fonts: system / web-safe stacks only, no external fonts */
     --font-body: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
     --font-heading: Georgia, "Times New Roman", Times, serif;
@@ -116,6 +120,7 @@ input[type="checkbox"] {
     border-radius: var(--radius);
     font: inherit;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
 }
 
@@ -250,6 +255,91 @@ input[type="checkbox"] {
 
 .card-title {
     color: var(--color-accent);
+}
+
+/* Seat grid: a row label column plus one column per seat; wide rooms scroll sideways */
+.seat-grid-scroll {
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+}
+
+.seat-grid {
+    display: grid;
+    grid-template-columns: max-content repeat(var(--seat-columns), 2rem);
+    gap: var(--space-1);
+    width: max-content;
+}
+
+.seat,
+.seat-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 0.75rem;
+}
+
+.seat-row-label {
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.seat-row-label small {
+    font-size: 0.7rem;
+    font-weight: 400;
+}
+
+.seat-standard {
+    background: var(--seat-standard);
+    color: #fff;
+}
+
+.seat-vip {
+    background: var(--seat-vip);
+    color: var(--color-bg);
+}
+
+button.seat,
+button.seat-row-label {
+    cursor: pointer;
+}
+
+button.seat-row-label:hover {
+    border-color: var(--color-text);
+}
+
+.seat-selected {
+    border-color: var(--color-text);
+}
+
+.seat-taken {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.seat-legend {
+    display: flex;
+    gap: var(--space-4);
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.seat-legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.seat-legend .seat {
+    width: 1.25rem;
+    height: 1.25rem;
 }
 
 /* Blazor unhandled error banner */

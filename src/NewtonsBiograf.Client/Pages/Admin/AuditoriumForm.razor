@@ -1,0 +1,187 @@
+@page "/admin/auditoriums/new"
+@page "/admin/auditoriums/{Id:int}"
+@attribute [Authorize(Roles = Roles.Admin)]
+@using NewtonsBiograf.Client.Services
+@inject AuditoriumApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>@Title · Newtons Biograf</PageTitle>
+
+<h1>@Title</h1>
+
+@if (loadProblem is not null)
+{
+    <AlertBox Kind="AlertBox.AlertKind.Error">@loadProblem.General()</AlertBox>
+    <p><a href="admin/auditoriums">Back to auditoriums</a></p>
+}
+else if (loading)
+{
+    <Spinner />
+}
+else
+{
+    <div class="stack">
+        <Card Title="Details">
+            <form @onsubmit="SaveAsync" novalidate class="form-narrow">
+                @if (formProblem?.General(Fields) is { } general)
+                {
+                    <AlertBox Kind="AlertBox.AlertKind.Error">@general</AlertBox>
+                }
+                <FormField Label="Name" Id="auditorium-name" Error="@(formProblem?.Field("Name"))">
+                    <input id="auditorium-name" type="text" maxlength="100" @bind="name" @bind:event="oninput" />
+                </FormField>
+                <FormField Label="Rows (1–26)" Id="auditorium-rows" Error="@(formProblem?.Field("Rows"))">
+                    <input id="auditorium-rows" type="number" min="1" max="26" step="1" @bind="rows" @bind:event="oninput" />
+                </FormField>
+                <FormField Label="Seats per row (1–40)" Id="auditorium-seats" Error="@(formProblem?.Field("SeatsPerRow"))">
+                    <input id="auditorium-seats" type="number" min="1" max="40" step="1" @bind="seatsPerRow" @bind:event="oninput" />
+                </FormField>
+                <AppButton Type="submit" Disabled="busy">Save</AppButton>
+                <AppButton Variant="AppButton.ButtonVariant.Secondary" Disabled="busy" OnClick="Cancel">Cancel</AppButton>
+            </form>
+        </Card>
+
+        <Card Title="Current prices">
+            @if (pricesProblem is not null)
+            {
+                <AlertBox Kind="AlertBox.AlertKind.Error">@pricesProblem.General()</AlertBox>
+            }
+            else if (prices is not null)
+            {
+                <p>Standard seat: <strong>@($"{prices.StandardSeat:0.##} SEK")</strong></p>
+                <p>VIP seat: <strong>@($"{prices.VipSeat:0.##} SEK")</strong></p>
+                <p class="text-muted">Prices are read-only here.</p>
+            }
+        </Card>
+
+        @if (current is not null)
+        {
+            <Card Title="Seat layout">
+                <p class="text-muted">Click a row label to switch the whole row between Standard and VIP. Each change is saved at once.</p>
+                @if (rowProblem is not null)
+                {
+                    <AlertBox Kind="AlertBox.AlertKind.Error">@rowProblem.General()</AlertBox>
+                }
+                <SeatGrid Rows="current.Rows" SeatsPerRow="current.SeatsPerRow" VipRows="vipRows" OnRowClick="ToggleRowAsync" />
+            </Card>
+        }
+    </div>
+}
+
+@code {
+    private static readonly string[] Fields = ["Name", "Rows", "SeatsPerRow"];
+
+    /// <summary>Set when editing; absent on the "new" route.</summary>
+    [Parameter] public int? Id { get; set; }
+
+    private string Title => Id is null ? "New auditorium" : "Edit auditorium";
+
+    private bool loading = true;
+    private bool busy;
+    private ApiProblem? loadProblem;
+    private ApiProblem? formProblem;
+    private ApiProblem? rowProblem;
+    private ApiProblem? pricesProblem;
+    private PricingDto? prices;
+
+    /// <summary>The saved auditorium; the grid shows this layout, not what is typed in the form.</summary>
+    private AuditoriumDto? current;
+    private readonly HashSet<int> vipRows = [];
+    private readonly HashSet<int> pendingRows = [];
+
+    private string name = "";
+    private int? rows;
+    private int? seatsPerRow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var pricesTask = Api.GetPricesAsync();
+        var auditoriumTask = Id is { } id ? Api.GetAsync(id) : null;
+
+        var pricesResult = await pricesTask;
+        prices = pricesResult.Prices;
+        pricesProblem = pricesResult.Problem;
+
+        if (auditoriumTask is not null)
+        {
+            var result = await auditoriumTask;
+            if (result.Success)
+            {
+                current = result.Auditorium;
+                name = current!.Name;
+                rows = current.Rows;
+                seatsPerRow = current.SeatsPerRow;
+                vipRows.UnionWith(current.VipRows);
+            }
+            else
+            {
+                loadProblem = result.Problem;
+            }
+        }
+        loading = false;
+    }
+
+    /// <summary>Sends what was typed as-is; the API validates it and the errors come back through <see cref="formProblem"/>.</summary>
+    private async Task SaveAsync()
+    {
+        busy = true;
+        formProblem = null;
+        try
+        {
+            var request = new AuditoriumRequest { Name = name, Rows = rows ?? 0, SeatsPerRow = seatsPerRow ?? 0 };
+            var result = Id is { } id ? await Api.UpdateAsync(id, request) : await Api.CreateAsync(request);
+            if (result.Success)
+            {
+                Nav.NavigateTo("admin/auditoriums");
+            }
+            else
+            {
+                formProblem = result.Problem;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Cancel() => Nav.NavigateTo("admin/auditoriums");
+
+    /// <summary>Flips the row at once, saves it, and puts the row back with an error message if the API refuses.</summary>
+    private async Task ToggleRowAsync(int row)
+    {
+        if (Id is not { } id || !pendingRows.Add(row))
+        {
+            return;
+        }
+
+        rowProblem = null;
+        var makeVip = !vipRows.Contains(row);
+        SetVip(row, makeVip);
+        try
+        {
+            var result = await Api.SetRowTypeAsync(id, row, makeVip ? SeatType.VIP : SeatType.Standard);
+            if (!result.Success)
+            {
+                SetVip(row, !makeVip);
+                rowProblem = result.Problem;
+            }
+        }
+        finally
+        {
+            pendingRows.Remove(row);
+        }
+    }
+
+    private void SetVip(int row, bool vip)
+    {
+        if (vip)
+        {
+            vipRows.Add(row);
+        }
+        else
+        {
+            vipRows.Remove(row);
+        }
+    }
+}

@@ -1,0 +1,55 @@
+<div class="seat-grid-scroll">
+    <div class="seat-grid" role="group" aria-label="Seat layout" style="--seat-columns: @SeatsPerRow">
+        @for (var row = 1; row <= Rows; row++)
+        {
+            var r = row;
+            var vip = VipRows.Contains(r);
+            var typeClass = vip ? "seat-vip" : "seat-standard";
+            var typeName = vip ? "VIP" : "Standard";
+            if (OnRowClick.HasDelegate)
+            {
+                <button type="button" class="seat-row-label @typeClass" aria-label="Row @r @typeName"
+                        title="Row @r is @typeName. Click to change it." @onclick="() => OnRowClick.InvokeAsync(r)">@r <small>@typeName</small></button>
+            }
+            else
+            {
+                <span class="seat-row-label @typeClass">@r <small>@typeName</small></span>
+            }
+            for (var number = 1; number <= SeatsPerRow; number++)
+            {
+                var n = number;
+                var taken = Taken?.Contains((r, n)) == true;
+                var state = taken ? "seat-taken" : Selected?.Contains((r, n)) == true ? "seat-selected" : "";
+                if (OnSeatClick.HasDelegate)
+                {
+                    <button type="button" class="seat @typeClass @state" disabled="@taken"
+                            aria-label="Row @r seat @n @typeName" @onclick="() => OnSeatClick.InvokeAsync((r, n))">@n</button>
+                }
+                else
+                {
+                    <span class="seat @typeClass @state">@n</span>
+                }
+            }
+        }
+    </div>
+</div>
+<ul class="seat-legend">
+    <li><span class="seat seat-standard" aria-hidden="true"></span> Standard</li>
+    <li><span class="seat seat-vip" aria-hidden="true"></span> VIP</li>
+</ul>
+
+@code {
+    [Parameter, EditorRequired] public int Rows { get; set; }
+    [Parameter, EditorRequired] public int SeatsPerRow { get; set; }
+
+    /// <summary>Row numbers whose seats are all VIP; every other row is Standard.</summary>
+    [Parameter, EditorRequired] public IReadOnlySet<int> VipRows { get; set; } = new HashSet<int>();
+
+    /// <summary>When set, row labels are buttons that report the row number.</summary>
+    [Parameter] public EventCallback<int> OnRowClick { get; set; }
+
+    /// <summary>Seats as (row, seat number). When <see cref="OnSeatClick"/> is set, seats are buttons and taken seats are disabled.</summary>
+    [Parameter] public IReadOnlySet<(int Row, int Seat)>? Selected { get; set; }
+    [Parameter] public IReadOnlySet<(int Row, int Seat)>? Taken { get; set; }
+    [Parameter] public EventCallback<(int Row, int Seat)> OnSeatClick { get; set; }
+}

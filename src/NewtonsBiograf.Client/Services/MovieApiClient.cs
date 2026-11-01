@@ -15,8 +15,8 @@ public sealed class MovieApiClient(IHttpClientFactory factory)
     public const string ForbiddenMessage = "You do not have permission to manage movies.";
     public const string NotFoundMessage = "That movie no longer exists. The list has been refreshed.";
 
-    /// <summary>Web defaults plus the API's enum rule: enums travel as their member names.</summary>
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    /// <summary>Web defaults plus the API's enum rule: enums travel as their member names. Shared with the other API clients.</summary>
+    internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         Converters = { new StrictEnumConverterFactory() }
     };

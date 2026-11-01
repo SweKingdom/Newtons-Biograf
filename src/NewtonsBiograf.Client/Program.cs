@@ -32,5 +32,6 @@ builder.Services.AddTransient<AuthMessageHandler>();
 builder.Services.AddHttpClient("Api", client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<AuthMessageHandler>();
 builder.Services.AddScoped<MovieApiClient>();
+builder.Services.AddScoped<AuditoriumApiClient>();
 
 await builder.Build().RunAsync();

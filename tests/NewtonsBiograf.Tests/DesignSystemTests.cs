@@ -155,4 +155,84 @@ public class DesignSystemTests
         foreach (var field in new[] { "Title", "Genre", "AgeRating", "LengthMinutes", "Description" })
             Assert.Contains($"Errors?.Field(\"{field}\")", form);
     }
+
+    [Fact]
+    public void US128_Ac1_Auditorium_list_shows_the_columns_and_the_form_has_the_three_fields_with_field_errors()
+    {
+        var list = Read("Pages", "Admin", "Auditoriums.razor");
+        var form = Read("Pages", "Admin", "AuditoriumForm.razor");
+
+        Assert.Contains("@page \"/admin/auditoriums\"", list);
+        Assert.Contains("<th>Name</th><th>Rows</th><th>Seats per row</th><th>Capacity</th>", list);
+        Assert.Contains("@page \"/admin/auditoriums/new\"", form);
+        Assert.Contains("@page \"/admin/auditoriums/{Id:int}\"", form);
+        foreach (var field in new[] { "Name", "Rows", "SeatsPerRow" })
+            Assert.Contains($"formProblem?.Field(\"{field}\")", form);
+        Assert.Contains("Nav.NavigateTo(\"admin/auditoriums\")", form);
+        Assert.Contains("AddScoped<AuditoriumApiClient>", Read("Program.cs"));
+    }
+
+    [Fact]
+    public void US128_Ac2_Seat_grid_has_labelled_focusable_row_buttons_and_the_form_reverts_a_failed_toggle()
+    {
+        var grid = Read("Components", "SeatGrid.razor");
+        var form = Read("Pages", "Admin", "AuditoriumForm.razor");
+
+        Assert.Contains("<button type=\"button\" class=\"seat-row-label @typeClass\" aria-label=\"Row @r @typeName\"", grid);
+        Assert.Contains("\"VIP\" : \"Standard\"", grid);
+        Assert.Contains("<small>@typeName</small>", grid);
+        Assert.Contains("IReadOnlySet<int> VipRows", grid);
+        Assert.Contains("<SeatGrid", form);
+        Assert.Contains("SetRowTypeAsync(id, row,", form);
+        Assert.Contains("SetVip(row, !makeVip);", form);
+        Assert.Contains("rowProblem", form);
+    }
+
+    [Fact]
+    public void US128_Ac2_Seat_colours_are_css_variables_and_wide_grids_scroll_sideways()
+    {
+        var css = Read("wwwroot", "css", "app.css");
+
+        Assert.Contains("--seat-standard:", css);
+        Assert.Contains("--seat-vip:", css);
+        Assert.Contains("background: var(--seat-vip)", css);
+        Assert.Matches(@"\.seat-grid-scroll\s*\{\s*overflow-x: auto;", css);
+    }
+
+    [Fact]
+    public void US128_Ac3_Form_shows_the_read_only_prices_from_the_pricing_endpoint()
+    {
+        var form = Read("Pages", "Admin", "AuditoriumForm.razor");
+
+        Assert.Contains("GetPricesAsync()", form);
+        Assert.Contains("prices.StandardSeat", form);
+        Assert.Contains("prices.VipSeat", form);
+        Assert.Contains("\"api/pricing\"", Read("Services", "AuditoriumApiClient.cs"));
+    }
+
+    [Fact]
+    public void US128_Ac5_Pages_are_admin_only_and_the_nav_entry_sits_in_the_admin_block()
+    {
+        Assert.Contains("[Authorize(Roles = Roles.Admin)]", Read("Pages", "Admin", "Auditoriums.razor"));
+        Assert.Contains("[Authorize(Roles = Roles.Admin)]", Read("Pages", "Admin", "AuditoriumForm.razor"));
+
+        var layout = Read("Layout", "MainLayout.razor");
+        var entry = layout.IndexOf("href=\"admin/auditoriums\"", StringComparison.Ordinal);
+        var block = layout.LastIndexOf("<AuthorizeView Roles=\"@Roles.Admin\">", entry, StringComparison.Ordinal);
+        Assert.True(entry > block && block >= 0);
+        Assert.True(layout.IndexOf("</AuthorizeView>", block, StringComparison.Ordinal) > entry);
+    }
+
+    [Fact]
+    public void US128_Ac6_Pages_show_a_spinner_an_empty_state_and_an_error_alert()
+    {
+        var list = Read("Pages", "Admin", "Auditoriums.razor");
+        var form = Read("Pages", "Admin", "AuditoriumForm.razor");
+
+        Assert.Contains("<Spinner />", list);
+        Assert.Contains("No auditoriums yet. Add the first one.", list);
+        Assert.Contains("AlertBox.AlertKind.Error", list);
+        Assert.Contains("<Spinner />", form);
+        Assert.Contains("loadProblem", form);
+    }
 }
