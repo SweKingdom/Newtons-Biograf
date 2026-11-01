@@ -101,3 +101,21 @@ Behaviour:
 Contracts (`src/NewtonsBiograf.Shared/StaffDtos.cs`): `CreateStaffRequest` (Name: required, max 100 characters; Email; Password; Permissions[]) and `StaffDto`.
 
 Known gaps: no delete or deactivate endpoint for staff. Permission updates are added by US-122.
+
+## Staff permissions (US-122)
+
+**Endpoint:** `PUT /api/admin/staff/{id}/permissions`, body `{ "Permissions": string[] }` (required, may be empty).
+
+| Status | Cause |
+|---|---|
+| 204 | Permissions set (also when unchanged) |
+| 400 | Unknown permission name (error key `Permissions`), or target is not in role Staff |
+| 401/403 | Caller is not Admin |
+| 404 | Unknown user id |
+
+**Logic order:** validate names against `Permissions.All` → find user (404) → check role Staff (400) → compare current `permission` claims with the requested set → remove and add only the differences inside a `DbContext.Database.BeginTransactionAsync` transaction.
+
+- Only claims of type `permission` are touched.
+- Idempotent: same set returns 204 with no write.
+- Tokens are not revoked. Changes apply when a new token is issued, which is governed by `Jwt:ExpiryMinutes` (default 60).
+- No schema change or migration.
