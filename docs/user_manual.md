@@ -109,44 +109,59 @@ Use the Movies screen to keep the movie programme up to date. You need the **Man
 
 ## How to manage auditoriums
 
-Admins create and edit auditoriums. All staff and customers can view them.
+Admins create and edit auditoriums. All staff and customers can view them. Only admins can open the auditorium screens; other users do not see the **Auditoriums** menu entry.
 
 **Create an auditorium**
 1. Sign in as an admin.
-2. Open the auditorium list and choose the option to add a new auditorium.
-3. Enter a **Name**. The name must be unique and may be up to 100 characters. Names are not case-sensitive, so "Salon 1" and "salon 1" count as the same name.
-4. Enter **Rows** (1 to 26).
-5. Enter **Seats per row** (1 to 40).
-6. Save. The **Capacity** is calculated automatically as Rows × Seats per row. All seats are created as standard seats.
+2. Open **Auditoriums** in the menu. The list shows each auditorium with its name, rows, seats per row and capacity.
+3. Choose the option to add a new auditorium.
+4. Enter a **Name**. The name must be unique and may be up to 100 characters. Names are not case-sensitive, so "Salon 1" and "salon 1" count as the same name.
+5. Enter **Rows** (1 to 26).
+6. Enter **Seats per row** (1 to 40).
+7. Save. You return to the list, which shows the new auditorium. **Capacity** is calculated automatically as Rows × Seats per row. All seats are created as standard seats.
 
 **Edit an auditorium**
-1. Sign in as an admin and open the auditorium.
-2. Change the **Name**, the **Rows** or the **Seats per row**.
-3. Save.
+1. Sign in as an admin and open **Auditoriums** from the menu.
+2. Choose the auditorium you want to change. The edit page shows its prices and its seat grid.
+3. Change the **Name**, the **Rows** or the **Seats per row**.
+4. Save. You return to the list, which shows the new data.
+
+**Read the seat grid**
+- Each row is labelled with its number and its type, **VIP** or **Standard**. VIP rows are gold; Standard rows use the standard seat colour.
+- To change a row's type, see [How to set VIP rows and seat prices](#how-to-set-vip-rows-and-seat-prices).
 
 Tips and warnings:
 - Changing only the name is always allowed.
-- Changing **Rows** or **Seats per row** is blocked when the auditorium has future showings with bookings, or when a seat that would be removed has already been booked. The message "Layout cannot be changed because the auditorium has bookings." is shown and nothing is changed.
+- Changing **Rows** or **Seats per row** is blocked when the auditorium has future showings with bookings, or when a seat that would be removed has already been booked. The message "Layout cannot be changed because the auditorium has bookings." is shown in a red message box and nothing is changed. Your typed values stay on the form.
 - When you add rows or seats, existing seats keep their position. New seats in an existing row take that row's seat type. New rows are standard.
 - If a name is already in use, the save fails and the **Name** field shows an error.
+- If the list or the edit page cannot load, a red message box shows the error. Try again later or contact support.
+- If there are no auditoriums, the list shows "No auditoriums yet. Add the first one."
 
 **View auditoriums**
-- The auditorium list and each auditorium's details show Name, Rows, Seats per row, Capacity and VIP rows. Anyone can view them, without signing in.
+- Anyone can view the auditorium list and each auditorium's details, without signing in.
+- The list and details show Name, Rows, Seats per row, Capacity and VIP rows.
 
 ## How to set VIP rows and seat prices
 
 Admins can mark a whole row of an auditorium as VIP, or set it back to Standard. Seat prices are set by the system configuration, not in the app.
 
-1. Open the auditorium you want to change under **Auditoriums**.
-2. Find the row you want to change.
-3. Set the row's seat type to **VIP** or **Standard**. Every seat in that row takes the new type. Other rows are not changed.
-4. Save. Doing the same change twice has no further effect.
+1. Sign in as an admin and open **Auditoriums** from the menu.
+2. Choose the auditorium, then open **Edit**.
+3. Click the row label of the row you want to change (for example "Row 2").
+4. The row changes to **VIP** (gold, labelled "VIP") or back to **Standard**. The change is saved immediately. There is no Save button for this step.
+5. Reload the page to confirm the change is kept. Doing the same change twice has no further effect.
+
+If the change cannot be saved, the row returns to its previous type and a red message box shows the error. Try again.
+
+**Prices**
+- The edit page shows the current **Standard** and **VIP** prices. The prices are read-only.
+- Current prices are 140 SEK for a Standard seat and 200 SEK for a VIP seat. Customers see these prices when they book.
 
 **Tips**
 - Seat type applies to a whole row only. You cannot mark single seats as VIP.
-- Current prices are 140 SEK for a Standard seat and 200 SEK for a VIP seat. Customers see these prices when they book.
 
 **Warnings**
 - Changing a row to VIP or Standard does not change the price of bookings that already exist.
-- Only Admins can change seat types. Staff and Customer accounts receive an access error.
+- Only Admins can change seat types. Staff and Customer accounts do not see the screens and receive an access error from the system.
 - Price changes are made by the system administrator in the configuration, not in the app.

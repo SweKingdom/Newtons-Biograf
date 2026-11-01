@@ -250,3 +250,30 @@ Defaults live only in `appsettings.json`. The application fails at startup if a 
 **Rules**
 - Row type applies to all seats in a row; no per-seat override.
 - Booking prices are snapshots taken through `IPriceCalculator` at booking time. Later price or row type changes do not alter existing bookings.
+
+## Auditorium management screens (US-128)
+
+**Pages:** `Pages/Admin/Auditoriums.razor` (list, `/admin/auditoriums`) and `Pages/Admin/AuditoriumForm.razor` (create `/admin/auditoriums/new`, edit `/admin/auditoriums/{Id:int}`). Both use `[Authorize(Roles = Roles.Admin)]`, as `Staff.razor` does. The client registers no `AdminOnly` policy; the API `AdminOnly` policy is the enforcement.
+
+**Client service:** `AuditoriumApiClient` (registered in `Program.cs`) with `List`, `Get`, `GetPrices`, `Create`, `Update` and `SetRowType`. Each call returns `AuditoriumResult`, as `MovieResult` does. It reuses the `internal` JSON options of `MovieApiClient`, so enums are sent and read as names.
+
+| Call | Endpoint | Used by |
+|---|---|---|
+| List | `GET /api/auditoriums` | list page |
+| Get | `GET /api/auditoriums/{id}` | edit page |
+| GetPrices | `GET /api/pricing` | edit page (read-only prices) |
+| Create | `POST /api/auditoriums` | create form |
+| Update | `PUT /api/auditoriums/{id}` | edit form |
+| SetRowType | `PUT /api/auditoriums/{id}/rows/{row}/type` | VIP toggle on row label |
+
+**Form errors:** the form is a plain `<form>` with `FormField`s. API ValidationProblemDetails are mapped to the field named in the error (`Name`, `Rows`, `SeatsPerRow`). A 409 is shown in an AlertBox. Field values are kept after an error.
+
+**Seat grid:** `Components/SeatGrid.razor`. Row labels carry the VIP/Standard text. A failed `SetRowType` reverts the row to its previous type and shows an AlertBox. The `Selected`, `Taken` and `OnSeatClick` parameters are reserved for the booking story and are not used on the admin page.
+
+**Styling:** CSS variables `--seat-standard` and `--seat-vip` in `wwwroot/css/app.css`, plus seat grid styles and a `.btn` link reset.
+
+**Navigation:** Auditoriums entry in the Admin `AuthorizeView` in `Layout/MainLayout.razor`. There is no NavMenu.razor in this repository.
+
+**Tests:** `AuditoriumClientTests` (API client), `DesignSystemTests` (US-128 page, CSS and nav structure). `MovieClientTests` stub handlers are `internal` for reuse. The UI behaviour has no automated tests (no bUnit) and is verified by the manual checks in the task document.
+
+**Open points:** none new. See the US-126 open points for the anonymous `GET` response contents.
