@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NewtonsBiograf.Api.Data;
@@ -30,14 +31,17 @@ public sealed class LoggingBookingEvents(ILogger<LoggingBookingEvents> logger) :
 
 public abstract record BookingResult;
 
-/// <summary>The booking was saved (201).</summary>
+/// <summary>The booking was saved (201) or found.</summary>
 public sealed record BookingOk(BookingDto Booking) : BookingResult;
 
 /// <summary>The seat selection is invalid (400); nothing was saved.</summary>
 public sealed record BookingInvalid(string Message) : BookingResult;
 
-/// <summary>The showing does not exist (404).</summary>
+/// <summary>The showing or booking does not exist (404).</summary>
 public sealed record BookingNotFound : BookingResult;
+
+/// <summary>The booking belongs to someone else and the caller may not manage bookings (403).</summary>
+public sealed record BookingForbidden : BookingResult;
 
 /// <summary>The showing is cancelled or has started (409); nothing was saved.</summary>
 public sealed record BookingShowingClosed : BookingResult;
@@ -50,9 +54,25 @@ public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvid
     public const int MaxSeats = 8;
     public const int ReferenceLength = 8;
     public const int MaxReferenceRetries = 5;
+    public const int MaxSearchResults = 2 * 100;
 
     /// <summary>Uppercase letters and digits without the ambiguous 0, O, 1 and I.</summary>
     public const string ReferenceAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+    /// <summary>
+    /// The one projection every read query uses. Dates come back with an unspecified kind from the database, so the
+    /// results go through <see cref="AsUtc"/>. Seats are the booking's rows whether or not they are still active.
+    /// </summary>
+    public static readonly Expression<Func<Booking, BookingDto>> ToDto = b => new BookingDto(
+        b.Id, b.Reference, b.TotalPrice, b.Status,
+        b.Seats.OrderBy(s => s.Seat!.RowNumber).ThenBy(s => s.Seat!.SeatNumber)
+            .Select(s => new BookingSeatDto(s.Seat!.RowNumber, s.Seat.SeatNumber, s.Seat.Type, s.Price)).ToList(),
+        b.Showing!.Movie!.Title, b.Showing.Auditorium!.Name, b.Showing.StartTime, b.CreatedAt, b.CancelledAt);
+
+    private static DateTime Utc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+    private static BookingDto AsUtc(BookingDto dto) =>
+        dto with { Start = Utc(dto.Start), CreatedAt = Utc(dto.CreatedAt), CancelledAt = dto.CancelledAt is { } c ? Utc(c) : null };
 
     /// <summary>
     /// Books the seats in one save: the booking and its seats are written together or not at all. The unique index on
@@ -131,10 +151,60 @@ public class BookingService(AppDbContext db, IPriceCalculator prices, TimeProvid
         }
 
         publisher.RaiseCreated(booking.Id, userId, showing.Id);
-        var start = DateTime.SpecifyKind(showing.StartTime, DateTimeKind.Utc);
+        var start = Utc(showing.StartTime);
         return new BookingOk(new BookingDto(booking.Id, booking.Reference, booking.TotalPrice, booking.Status,
             lines.Select(l => new BookingSeatDto(l.Seat.RowNumber, l.Seat.SeatNumber, l.Seat.Type, l.Price)).ToList(),
-            showing.Movie!.Title, showing.Auditorium!.Name, start));
+            showing.Movie!.Title, showing.Auditorium!.Name, start, Utc(booking.CreatedAt)));
+    }
+
+    /// <summary>
+    /// The caller's own bookings. Upcoming: Confirmed and the showing has not started, earliest first. History: every
+    /// other booking (started showings, cancelled bookings), latest first. Together they hold each booking once.
+    /// </summary>
+    public async Task<List<BookingDto>> GetMineAsync(string userId, BookingScope scope, CancellationToken ct = default)
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var mine = db.Bookings.AsNoTracking().Where(b => b.UserId == userId);
+        var list = scope == BookingScope.Upcoming
+            ? mine.Where(b => b.Status == BookingStatus.Confirmed && b.Showing!.StartTime > now)
+                .OrderBy(b => b.Showing!.StartTime).ThenBy(b => b.Id)
+            : mine.Where(b => !(b.Status == BookingStatus.Confirmed && b.Showing!.StartTime > now))
+                .OrderByDescending(b => b.Showing!.StartTime).ThenByDescending(b => b.Id);
+        return (await list.Select(ToDto).ToListAsync(ct)).Select(AsUtc).ToList();
+    }
+
+    /// <summary>One booking: Ok for its owner or a caller who may manage bookings, Forbidden for others, NotFound if unknown.</summary>
+    public async Task<BookingResult> GetByIdAsync(int id, string userId, bool canManage, CancellationToken ct = default)
+    {
+        var owner = await db.Bookings.AsNoTracking().Where(b => b.Id == id).Select(b => b.UserId).SingleOrDefaultAsync(ct);
+        if (owner is null)
+        {
+            return new BookingNotFound();
+        }
+        if (owner != userId && !canManage)
+        {
+            return new BookingForbidden();
+        }
+        var dto = await db.Bookings.AsNoTracking().Where(b => b.Id == id).Select(ToDto).SingleAsync(ct);
+        return new BookingOk(AsUtc(dto));
+    }
+
+    /// <summary>Staff search: by showing and/or exact reference (any case), latest showing first, at most <see cref="MaxSearchResults"/>.</summary>
+    public async Task<List<BookingDto>> SearchAsync(int? showingId, string? reference, CancellationToken ct = default)
+    {
+        var query = db.Bookings.AsNoTracking().AsQueryable();
+        if (showingId is { } showing)
+        {
+            query = query.Where(b => b.ShowingId == showing);
+        }
+        if (!string.IsNullOrWhiteSpace(reference))
+        {
+            var normalized = reference.Trim().ToUpperInvariant();
+            query = query.Where(b => b.Reference == normalized);
+        }
+        var list = await query.OrderByDescending(b => b.Showing!.StartTime).ThenByDescending(b => b.Id)
+            .Take(MaxSearchResults).Select(ToDto).ToListAsync(ct);
+        return list.Select(AsUtc).ToList();
     }
 
     /// <summary>A random reference of <see cref="ReferenceLength"/> characters from <see cref="ReferenceAlphabet"/>.</summary>
