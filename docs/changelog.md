@@ -2,4 +2,4 @@
 
 ## Unreleased
 
-- {2026-11-01} — US-116 Create solution structure and remove boilerplate: .NET 8 solution with Api, Client, Shared and Tests projects; template pages removed; `GET /api/health` added. Build and tests not yet verified.
+- {2026-11-01} — US-117 Data model, generic repository and initial migration: EF Core model for movies, auditoriums, seats, showings, bookings and booking seats, Identity tables, generic `IRepository<T>` and initial SQLite migration (not yet run).
