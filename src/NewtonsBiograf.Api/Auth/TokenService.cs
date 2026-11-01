@@ -17,7 +17,8 @@ public class JwtOptions
 
 public class TokenService(IOptions<JwtOptions> options)
 {
-    public const string PermissionClaimType = "permission";
+    public const string PermissionClaimType = Permissions.ClaimType;
+    public const string RoleClaimType = "role";
 
     /// <summary>Creates an HS256 JWT with sub, email, name, role and one permission claim per permission.</summary>
     public (string Token, DateTime ExpiresAt) Create(ApplicationUser user, string role, IEnumerable<string> permissions)
@@ -32,7 +33,7 @@ public class TokenService(IOptions<JwtOptions> options)
             new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             new(JwtRegisteredClaimNames.Name, user.DisplayName),
             // Written under the short JWT name "role"; the bearer setup reads it as the role claim.
-            new("role", role)
+            new(RoleClaimType, role)
         };
         claims.AddRange(permissions.Select(p => new Claim(PermissionClaimType, p)));
 

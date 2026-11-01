@@ -1,5 +1,9 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NewtonsBiograf.Api.Auth;
 using NewtonsBiograf.Api.Data;
@@ -30,6 +34,42 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false; // keep sub/email/role names as written by TokenService
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                await WriteProblem(context.Response, StatusCodes.Status401Unauthorized, "Authentication required",
+                    "https://tools.ietf.org/html/rfc9110#section-15.5.2");
+            },
+            OnForbidden = context => WriteProblem(context.Response, StatusCodes.Status403Forbidden,
+                "You do not have access to this resource", "https://tools.ietf.org/html/rfc9110#section-15.5.4")
+        };
+    });
+// The signing key comes from validated configuration, so it is resolved when the options are first used.
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
+    {
+        var jwt = jwtOptions.Value;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            ClockSkew = TimeSpan.FromMinutes(1),
+            RoleClaimType = TokenService.RoleClaimType,
+            NameClaimType = "name"
+        };
+    });
+builder.Services.AddAuthorization(options => options.AddAppPolicies());
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -70,8 +110,19 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Client");
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static Task WriteProblem(HttpResponse response, int status, string title, string type)
+{
+    response.StatusCode = status;
+    return response.WriteAsJsonAsync(
+        new Microsoft.AspNetCore.Mvc.ProblemDetails { Type = type, Title = title, Status = status },
+        (System.Text.Json.JsonSerializerOptions?)null,
+        "application/problem+json");
+}
 
 public partial class Program { }
